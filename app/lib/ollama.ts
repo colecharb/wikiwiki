@@ -46,6 +46,7 @@ interface OllamaCandidateArticle {
 export class OllamaClient {
   private ollamaUrl: string
   private ollamaModel: string
+  private isHealthy: boolean = false
 
   constructor(
     ollamaUrl: string = 'http://localhost:11434',
@@ -53,6 +54,11 @@ export class OllamaClient {
   ) {
     this.ollamaUrl = ollamaUrl.replace(/\/$/, '') // Remove trailing slash
     this.ollamaModel = ollamaModel
+    
+    // Log connection details for debugging
+    if (typeof window !== 'undefined') {
+      console.debug(`[OllamaClient] Connecting to ${this.ollamaUrl} with model ${this.ollamaModel}`)
+    }
   }
 
   /**
@@ -75,21 +81,47 @@ export class OllamaClient {
 
       // Check if the desired model is available
       if (data.models && !data.models.some((m) => m.name.includes(this.ollamaModel))) {
-        console.warn(
-          `Ollama model '${this.ollamaModel}' not found. Available models: ${data.models
-            .map((m) => m.name)
-            .join(', ')}`
-        )
+        const availableModels = data.models.map((m) => m.name).join(', ')
+        const errorMsg =
+          `Ollama model '${this.ollamaModel}' not found.\n` +
+          `Available models: ${availableModels}\n` +
+          `To download: ollama pull ${this.ollamaModel}`
+        
+        console.warn(`[OllamaClient] ${errorMsg}`)
+        throw new OllamaConnectionError(errorMsg)
+      }
+
+      this.isHealthy = true
+      if (typeof window !== 'undefined') {
+        console.debug(`[OllamaClient] Health check passed ✓`)
       }
     } catch (error) {
       if (error instanceof OllamaConnectionError) {
         throw error
       }
-      throw new OllamaConnectionError(
-        `Failed to connect to Ollama at ${this.ollamaUrl}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      )
+
+      // Provide more helpful error messages based on error type
+      let message = `Failed to connect to Ollama at ${this.ollamaUrl}`
+
+      if (error instanceof Error) {
+        if (error.message.includes('fetch failed')) {
+          message +=
+            `\n\nOllama is not running or not accessible.\n` +
+            `To start Ollama, run: ollama serve\n` +
+            `or launch the Ollama app from Applications.`
+        } else if (error.message.includes('timeout')) {
+          message += `\n\nOllama took too long to respond. It may be overloaded.`
+        } else if (error.message.includes('ECONNREFUSED')) {
+          message +=
+            `\n\nConnection refused. Make sure Ollama is running:\n` +
+            `  1. Open Terminal\n` +
+            `  2. Run: ollama serve\n` +
+            `  3. Keep the terminal window open`
+        }
+        message += `\n\nError: ${error.message}`
+      }
+
+      throw new OllamaConnectionError(message)
     }
   }
 
@@ -180,21 +212,38 @@ Consider conceptual relatedness, topic overlap, and semantic proximity. Be preci
 
       return result
     } catch (error) {
-      if (error instanceof AbortSignal) {
+      // Handle timeout
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new OllamaTimeoutError(
-          `Ollama similarity scoring exceeded ${timeout}ms timeout`
+          `Ollama similarity scoring exceeded ${timeout}ms timeout. ` +
+          `Try with simpler articles or increase timeout.`
         )
       }
+
+      // Re-throw custom errors
       if (error instanceof OllamaConnectionError || error instanceof OllamaResponseError) {
         throw error
       }
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new OllamaTimeoutError(
-          `Ollama similarity scoring exceeded ${timeout}ms timeout`
-        )
+
+      // Handle fetch errors
+      if (error instanceof Error) {
+        let message = `Ollama request failed`
+
+        if (error.message.includes('fetch failed')) {
+          message +=
+            `\n\nOllama is not responding.\n` +
+            `Make sure: ollama serve is running`
+        } else if (error.message.includes('ECONNREFUSED')) {
+          message += `\n\nConnection refused. Ollama may not be running.`
+        } else {
+          message += `\n\n${error.message}`
+        }
+
+        throw new OllamaConnectionError(message)
       }
+
       throw new OllamaConnectionError(
-        `Ollama request failed: ${error instanceof Error ? error.message : String(error)}`
+        `Ollama request failed: ${String(error)}`
       )
     }
   }
