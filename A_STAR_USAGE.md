@@ -200,7 +200,7 @@ Mistral is recommended because it's fast (~1-2s per batch) while providing good 
 ### Batch Scoring Details
 
 - All links from one article are scored in a **single Ollama call**
-- Timeout per batch: **10 seconds**
+- Timeout per batch: **30 seconds**
 - Default temperature: **0.3** (low for consistency)
 - Response limit: **500 tokens**
 

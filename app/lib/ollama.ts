@@ -131,13 +131,13 @@ export class OllamaClient {
    *
    * @param candidates Array of articles with title and extract
    * @param targetTitle The target article we're trying to reach
-   * @param timeout Timeout in ms for the Ollama call (default: 10000)
+   * @param timeout Timeout in ms for the Ollama call (default: 30000)
    * @returns Map of title -> similarity score (0-100)
    */
   async batchScoreSimilarity(
     candidates: OllamaCandidateArticle[],
     targetTitle: string,
-    timeout: number = 10000
+    timeout: number = 30000
   ): Promise<Map<string, number>> {
     if (candidates.length === 0) {
       return new Map()

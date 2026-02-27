@@ -307,7 +307,7 @@ export class AStarPathfinder extends BasePathfinder {
               }))
               .filter((item) => item.extract), // Only score those with extracts
             endTitle,
-            10000 // 10 second timeout for batch scoring
+            30000 // 30 second timeout for batch scoring
           )
 
           // Process each neighbor
@@ -409,7 +409,7 @@ export class AStarPathfinder extends BasePathfinder {
     const scores = await this.ollama.batchScoreSimilarity(
       [{ title: nodeTitle, extract: nodeExtract }],
       targetTitle,
-      10000 // 10 second timeout for this batch
+      30000 // 30 second timeout for this batch
     )
 
     const similarityScore = scores.get(nodeTitle) || 50
