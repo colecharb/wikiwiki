@@ -256,10 +256,10 @@ export class OllamaClient {
     }
 
     try {
-      // Get target embedding once
+      // Get target embedding once (30 second individual timeout)
       let targetEmbedding: number[] | null = null
       try {
-        targetEmbedding = await this.getEmbedding(targetTitle, timeout)
+        targetEmbedding = await this.getEmbedding(targetTitle, 30000)
       } catch (error) {
         // If target embedding fails, log warning but continue with neutral scores
         console.warn(
@@ -275,11 +275,20 @@ export class OllamaClient {
       
       for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
         const batch = candidates.slice(i, i + BATCH_SIZE)
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1
+        const totalBatches = Math.ceil(candidates.length / BATCH_SIZE)
+        
+        if (typeof window !== 'undefined') {
+          console.debug(
+            `[OllamaClient] Processing batch ${batchNum}/${totalBatches} (${batch.length} articles)`
+          )
+        }
         
         // Get embeddings for this batch in parallel
+        // Each individual embedding gets 30 second timeout (reasonable per request)
         const batchEmbeddings = await Promise.all(
           batch.map((candidate) =>
-            this.getEmbedding(candidate.extract || candidate.title, timeout).catch(
+            this.getEmbedding(candidate.extract || candidate.title, 30000).catch(
               (error) => {
                 console.warn(
                   `[OllamaClient] Failed to get embedding for "${candidate.title}": ${
@@ -293,6 +302,14 @@ export class OllamaClient {
         )
         
         embeddings.push(...batchEmbeddings)
+        
+        if (typeof window !== 'undefined') {
+          console.debug(
+            `[OllamaClient] Batch ${batchNum}/${totalBatches} complete. Success rate: ${
+              batchEmbeddings.filter((e) => e !== null).length
+            }/${batch.length}`
+          )
+        }
       }
 
       // Calculate cosine similarity for each candidate

@@ -334,7 +334,7 @@ export class AStarPathfinder extends BasePathfinder {
               extract: title, // Use title as text for embedding
             })),
             endTitle,
-            60000 // 60 second timeout - parallel requests need more time
+            120000 // 120 second timeout - sequential batching of embeddings
           )
 
           // Process each neighbor
