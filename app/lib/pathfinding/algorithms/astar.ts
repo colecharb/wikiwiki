@@ -196,6 +196,10 @@ export class AStarPathfinder extends BasePathfinder {
     }
 
     // Main A* loop
+    if (typeof window !== 'undefined') {
+      console.debug(`[A*] Starting main loop. gScore has ${gScore.size} entries: ${Array.from(gScore.entries()).map(([k, v]) => `${k}:${v}`).join(', ')}`)
+    }
+    
     while (!openSet.isEmpty()) {
       // Check timeout
       if (!this.checkTimeout(startTime, timeout)) {
@@ -252,8 +256,12 @@ export class AStarPathfinder extends BasePathfinder {
 
       visited.add(currentTitle)
       
+      const currentNodeG = gScore.get(currentTitle)
+      
       if (typeof window !== 'undefined') {
-        console.debug(`[A*] Exploring: ${currentTitle} (visited: ${visited.size})`)
+        console.debug(
+          `[A*] Exploring: ${currentTitle} (visited: ${visited.size}, gScore: ${currentNodeG})`
+        )
       }
 
       // Emit progress update for exploring
