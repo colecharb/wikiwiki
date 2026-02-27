@@ -97,12 +97,6 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
               duration={result.duration}
               algorithm={result.algorithm}
             />
-            <button
-              onClick={handleReset}
-              className="w-full px-4 py-2 bg-gray-200 dark:bg-zinc-800 hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-900 dark:text-white font-medium rounded-lg transition-colors"
-            >
-              New Search
-            </button>
           </>
         )}
       </div>
