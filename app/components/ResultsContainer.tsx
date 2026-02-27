@@ -16,7 +16,7 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
   const [result, setResult] = useState<PathResult | null>(null)
   const [isSearching, setIsSearching] = useState(false)
 
-  const handleFindPath = async (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra', includeDisambiguation: boolean }) => {
+  const handleFindPath = async (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean }) => {
     setIsSearching(true)
     
     try {

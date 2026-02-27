@@ -6,7 +6,7 @@ import ArticlePreview from './ArticlePreview'
 import type { Article } from '@/app/lib/wikipedia'
 
 interface PathFinderFormProps {
-  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra', includeDisambiguation: boolean }) => void
+  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean }) => void
   onArticleChange?: () => void
   isSearching?: boolean
 }
@@ -15,6 +15,7 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
   const [startArticle, setStartArticle] = useState<Article | null>(null)
   const [endArticle, setEndArticle] = useState<Article | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [algorithm, setAlgorithm] = useState<'bfs' | 'dijkstra' | 'a*'>('bfs')
   const [includeDisambiguation, setIncludeDisambiguation] = useState(false)
 
   // Use prop if provided, otherwise use local state
@@ -34,7 +35,7 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     if (!startArticle || !endArticle) return
 
     if (onFindPath) {
-      onFindPath(startArticle, endArticle, { algorithm: 'bfs', includeDisambiguation })
+      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation })
     }
   }
 
@@ -42,22 +43,48 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
 
   return (
     <div className="w-full space-y-6">
-      {/* Disambiguation Toggle */}
-      <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800">
-        <input
-          type="checkbox"
-          id="includeDisambiguation"
-          checked={includeDisambiguation}
-          onChange={(e) => setIncludeDisambiguation(e.target.checked)}
-          disabled={searching}
-          className="w-4 h-4 rounded border-gray-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        <label
-          htmlFor="includeDisambiguation"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-        >
-          Include disambiguation pages
-        </label>
+      {/* Algorithm Selection and Options */}
+      <div className="space-y-4 p-4 bg-gray-50 dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800">
+        {/* Algorithm Dropdown */}
+        <div className="space-y-2">
+          <label htmlFor="algorithm" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Pathfinding Algorithm
+          </label>
+          <select
+            id="algorithm"
+            value={algorithm}
+            onChange={(e) => setAlgorithm(e.target.value as 'bfs' | 'dijkstra' | 'a*')}
+            disabled={searching}
+            className="w-full px-4 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <option value="bfs">BFS (Fast, Guaranteed Shortest)</option>
+            <option value="dijkstra">Dijkstra's (Guaranteed Shortest)</option>
+            <option value="a*">A* with Ollama (Semantic, Requires Ollama)</option>
+          </select>
+          {algorithm === 'a*' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+              ⚠️ Requires Ollama running locally. Start with: <code className="bg-amber-50 dark:bg-amber-950 px-2 py-1 rounded text-amber-800 dark:text-amber-300">ollama serve</code>
+            </p>
+          )}
+        </div>
+
+        {/* Disambiguation Toggle */}
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="includeDisambiguation"
+            checked={includeDisambiguation}
+            onChange={(e) => setIncludeDisambiguation(e.target.checked)}
+            disabled={searching}
+            className="w-4 h-4 rounded border-gray-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <label
+            htmlFor="includeDisambiguation"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+          >
+            Include disambiguation pages
+          </label>
+        </div>
       </div>
 
       {/* Search Fields Container */}
