@@ -66,12 +66,12 @@ export type PathfindingErrorType =
  */
 export type PathfindingOptions = {
   maxDepth?: number // Max hops allowed (unlimited if not set)
-  timeout?: number // Timeout in ms (default: 60000)
+  timeout?: number // Timeout in ms (default: 300000 - 5 minutes)
   algorithm?: 'bfs' | 'dijkstra' | 'a*' // Which algorithm to use (default: 'bfs')
   useCache?: boolean // Use cached links (default: true)
   includeDisambiguation?: boolean // Include disambiguation pages (default: false)
   ollamaUrl?: string // Ollama server URL (default: 'http://localhost:11434') - required for A*
-  ollamaModel?: string // Ollama embedding model name (default: 'nomic-embed-text') - required for A*
+  ollamaModel?: string // Ollama embedding model name (default: 'snowflake-arctic-embed:xs') - required for A*
 }
 
 /**

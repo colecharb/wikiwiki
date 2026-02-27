@@ -15,8 +15,8 @@ import type { PathfindingOptions, PathResult } from './types'
 
 /**
  * Find the shortest path between two Wikipedia articles
- * Uses caching and BFS by default for optimal performance
- * Supports A* algorithm with semantic similarity scoring via Ollama
+ * Uses A* algorithm with semantic similarity scoring by default
+ * Supports BFS and Dijkstra's algorithms as fallback options
  */
 export async function findPathBetweenArticles(
   startTitle: string,
@@ -24,12 +24,12 @@ export async function findPathBetweenArticles(
   options: PathfindingOptions = {}
 ): Promise<PathResult> {
   const {
-    timeout = 60000,
-    algorithm = 'bfs',
+    timeout = 300000, // 5 minutes
+    algorithm = 'a*',
     useCache = true,
     includeDisambiguation = false,
     ollamaUrl = 'http://localhost:11434',
-    ollamaModel = 'nomic-embed-text',
+    ollamaModel = 'snowflake-arctic-embed:xs',
   } = options
 
   // Setup crawler with caching if enabled
