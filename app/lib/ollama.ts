@@ -269,21 +269,31 @@ export class OllamaClient {
         )
       }
 
-      // Get embeddings for all candidates in parallel
-      const embeddings = await Promise.all(
-        candidates.map((candidate) =>
-          this.getEmbedding(candidate.extract || candidate.title, timeout).catch(
-            (error) => {
-              console.warn(
-                `[OllamaClient] Failed to get embedding for "${candidate.title}": ${
-                  error instanceof Error ? error.message : String(error)
-                }`
-              )
-              return null
-            }
+      // Process candidates in smaller batches (max 5 at a time) to avoid overloading Ollama
+      const BATCH_SIZE = 5
+      const embeddings: (number[] | null)[] = []
+      
+      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+        const batch = candidates.slice(i, i + BATCH_SIZE)
+        
+        // Get embeddings for this batch in parallel
+        const batchEmbeddings = await Promise.all(
+          batch.map((candidate) =>
+            this.getEmbedding(candidate.extract || candidate.title, timeout).catch(
+              (error) => {
+                console.warn(
+                  `[OllamaClient] Failed to get embedding for "${candidate.title}": ${
+                    error instanceof Error ? error.message : String(error)
+                  }`
+                )
+                return null
+              }
+            )
           )
         )
-      )
+        
+        embeddings.push(...batchEmbeddings)
+      }
 
       // Calculate cosine similarity for each candidate
       const result = new Map<string, number>()

@@ -295,7 +295,7 @@ export class AStarPathfinder extends BasePathfinder {
               extract: title, // Use title as text for embedding
             })),
             endTitle,
-            10000 // 10 second timeout for embedding-based batch scoring
+            60000 // 60 second timeout - parallel requests need more time
           )
 
           // Process each neighbor
@@ -396,7 +396,7 @@ export class AStarPathfinder extends BasePathfinder {
     const scores = await this.ollama.batchScoreSimilarity(
       [{ title: nodeTitle, extract: nodeTitle }],
       targetTitle,
-      10000 // 10 second timeout for embedding-based scoring
+      30000 // 30 second timeout for embedding-based scoring
     )
 
     const similarityScore = scores.get(nodeTitle) || 50
