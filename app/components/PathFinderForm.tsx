@@ -14,7 +14,6 @@ export default function PathFinderForm({ onFindPath, isSearching: isSearchingPro
   const [startArticle, setStartArticle] = useState<Article | null>(null)
   const [endArticle, setEndArticle] = useState<Article | null>(null)
   const [isSearching, setIsSearching] = useState(false)
-  const [algorithm, setAlgorithm] = useState<'bfs' | 'dijkstra'>('bfs')
   const [includeDisambiguation, setIncludeDisambiguation] = useState(false)
 
   // Use prop if provided, otherwise use local state
@@ -24,7 +23,7 @@ export default function PathFinderForm({ onFindPath, isSearching: isSearchingPro
     if (!startArticle || !endArticle) return
 
     if (onFindPath) {
-      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation })
+      onFindPath(startArticle, endArticle, { algorithm: 'bfs', includeDisambiguation })
     }
   }
 
@@ -32,44 +31,22 @@ export default function PathFinderForm({ onFindPath, isSearching: isSearchingPro
 
   return (
     <div className="w-full space-y-6">
-      {/* Algorithm and Disambiguation Options */}
-      <div className="space-y-4 p-4 bg-gray-50 dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800">
-        {/* Algorithm Selection */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Algorithm
-          </label>
-          <select
-            value={algorithm}
-            onChange={(e) => setAlgorithm(e.target.value as 'bfs' | 'dijkstra')}
-            disabled={searching}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <option value="bfs">BFS (Fastest)</option>
-            <option value="dijkstra">Dijkstra's</option>
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Both find the shortest path. BFS is typically faster.
-          </p>
-        </div>
-
-        {/* Disambiguation Toggle */}
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            id="includeDisambiguation"
-            checked={includeDisambiguation}
-            onChange={(e) => setIncludeDisambiguation(e.target.checked)}
-            disabled={searching}
-            className="w-4 h-4 rounded border-gray-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <label
-            htmlFor="includeDisambiguation"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-          >
-            Include disambiguation pages
-          </label>
-        </div>
+      {/* Disambiguation Toggle */}
+      <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800">
+        <input
+          type="checkbox"
+          id="includeDisambiguation"
+          checked={includeDisambiguation}
+          onChange={(e) => setIncludeDisambiguation(e.target.checked)}
+          disabled={searching}
+          className="w-4 h-4 rounded border-gray-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        <label
+          htmlFor="includeDisambiguation"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+        >
+          Include disambiguation pages
+        </label>
       </div>
 
       {/* Search Fields Container */}
