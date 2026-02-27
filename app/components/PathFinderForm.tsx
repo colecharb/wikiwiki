@@ -7,10 +7,11 @@ import type { Article } from '@/app/lib/wikipedia'
 
 interface PathFinderFormProps {
   onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra', includeDisambiguation: boolean }) => void
+  onArticleChange?: () => void
   isSearching?: boolean
 }
 
-export default function PathFinderForm({ onFindPath, isSearching: isSearchingProp = false }: PathFinderFormProps) {
+export default function PathFinderForm({ onFindPath, onArticleChange, isSearching: isSearchingProp = false }: PathFinderFormProps) {
   const [startArticle, setStartArticle] = useState<Article | null>(null)
   const [endArticle, setEndArticle] = useState<Article | null>(null)
   const [isSearching, setIsSearching] = useState(false)
@@ -18,6 +19,16 @@ export default function PathFinderForm({ onFindPath, isSearching: isSearchingPro
 
   // Use prop if provided, otherwise use local state
   const searching = isSearchingProp || isSearching
+
+  const handleStartArticleChange = (article: Article) => {
+    setStartArticle(article)
+    onArticleChange?.()
+  }
+
+  const handleEndArticleChange = (article: Article) => {
+    setEndArticle(article)
+    onArticleChange?.()
+  }
 
   const handleFindPath = async () => {
     if (!startArticle || !endArticle) return
@@ -58,7 +69,7 @@ export default function PathFinderForm({ onFindPath, isSearching: isSearchingPro
           </label>
           <SearchField
             placeholder="Search starting article..."
-            onSelect={(article) => setStartArticle(article)}
+            onSelect={handleStartArticleChange}
           />
         </div>
 
@@ -69,7 +80,7 @@ export default function PathFinderForm({ onFindPath, isSearching: isSearchingPro
           </label>
           <SearchField
             placeholder="Search target article..."
-            onSelect={(article) => setEndArticle(article)}
+            onSelect={handleEndArticleChange}
           />
         </div>
       </div>
@@ -78,12 +89,18 @@ export default function PathFinderForm({ onFindPath, isSearching: isSearchingPro
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <ArticlePreview
           article={startArticle}
-          onClear={() => setStartArticle(null)}
+          onClear={() => {
+            setStartArticle(null)
+            onArticleChange?.()
+          }}
           label="Starting Article"
         />
         <ArticlePreview
           article={endArticle}
-          onClear={() => setEndArticle(null)}
+          onClear={() => {
+            setEndArticle(null)
+            onArticleChange?.()
+          }}
           label="Target Article"
         />
       </div>

@@ -80,11 +80,6 @@ export default function PathVisualization({
 
   return (
     <div className="w-full space-y-4">
-      {/* Title */}
-      <div className="text-lg font-semibold text-gray-900 dark:text-white">
-        Path ({path.length} articles)
-      </div>
-
       {/* Path container - no internal scrolling, scrolls with page */}
       <div className="pb-4 border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-gray-50 dark:bg-zinc-900 max-w-2xl mx-auto">
         <div className="flex flex-col gap-3">
