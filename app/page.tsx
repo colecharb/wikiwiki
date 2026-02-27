@@ -4,7 +4,7 @@ import ResultsContainer from './components/ResultsContainer'
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-4 py-8 sm:py-16">
       {/* Header */}
       <div className="w-full text-center mb-12 max-w-full">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-black dark:text-white mb-4">
