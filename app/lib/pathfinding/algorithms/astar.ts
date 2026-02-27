@@ -126,8 +126,8 @@ export class AStarPathfinder extends BasePathfinder {
   }
 
   /**
-   * Main A* algorithm
-   */
+    * Main A* algorithm
+    */
   private async astar(
     startTitle: string,
     endTitle: string,
@@ -147,6 +147,22 @@ export class AStarPathfinder extends BasePathfinder {
     // Session-scoped cache for similarity scores (for this search only)
     const similarityCache = new Map<string, number>()
 
+    // Fetch target extract once for better semantic similarity
+    let targetExtract: string | undefined = undefined
+    try {
+      const targetExtractResponse = await fetch(
+        `/api/wikipedia/extract?titles=${encodeURIComponent(endTitle)}`
+      )
+      if (targetExtractResponse.ok) {
+        const targetExtractData = (await targetExtractResponse.json()) as { success: boolean; data?: Record<string, { extract: string }> }
+        if (targetExtractData.success && targetExtractData.data && targetExtractData.data[endTitle]) {
+          targetExtract = targetExtractData.data[endTitle].extract
+        }
+      }
+    } catch (error) {
+      // Continue without target extract
+    }
+
     // Initialize start node
     gScore.set(startTitle, 0)
 
@@ -162,7 +178,7 @@ export class AStarPathfinder extends BasePathfinder {
 
     // Get initial similarity for start node
     try {
-      const startSimilarity = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache)
+      const startSimilarity = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache, targetExtract)
       hScore.set(startTitle, startSimilarity)
       
       // Semantic Greedy: use negative similarity for f-score (so highest similarity = lowest f)
@@ -337,7 +353,8 @@ export class AStarPathfinder extends BasePathfinder {
               extract: extracts[title] || title, // Use extract if available, fallback to title
             })),
             endTitle,
-            120000 // 120 second timeout - sequential batching of embeddings
+            120000, // 120 second timeout - sequential batching of embeddings
+            targetExtract
           )
 
           // Sort neighbors by similarity score (highest first)
@@ -440,7 +457,8 @@ export class AStarPathfinder extends BasePathfinder {
     targetTitle: string,
     startTime: number,
     timeout: number,
-    cache: Map<string, number>
+    cache: Map<string, number>,
+    targetExtract?: string
   ): Promise<number> {
     // Check cache first
     const cacheKey = `${nodeTitle}:${targetTitle}`
@@ -454,11 +472,12 @@ export class AStarPathfinder extends BasePathfinder {
       throw new OllamaTimeoutError('Overall search timeout reached while calculating similarity')
     }
 
-    // Score similarity using just the title
+    // Score similarity using just the title (can't batch fetch for single item)
     const scores = await this.ollama.batchScoreSimilarity(
       [{ title: nodeTitle, extract: nodeTitle }],
       targetTitle,
-      30000 // 30 second timeout for embedding-based scoring
+      30000, // 30 second timeout for embedding-based scoring
+      targetExtract
     )
 
     const similarityScore = scores.get(nodeTitle) || 50
