@@ -1,7 +1,6 @@
 /**
- * Ollama client for semantic similarity scoring
- * Communicates with local Ollama instance to score semantic similarity
- * between Wikipedia articles using Mistral model
+ * Ollama client for semantic similarity scoring via embeddings
+ * Uses nomic-embed-text model for fast, efficient similarity calculations
  */
 
 /**
@@ -39,25 +38,33 @@ interface OllamaCandidateArticle {
   extract: string
 }
 
+interface EmbeddingResponse {
+  embedding: number[]
+}
+
 /**
  * Client for communicating with local Ollama instance
- * Provides semantic similarity scoring for Wikipedia articles
+ * Provides semantic similarity scoring for Wikipedia articles using embeddings
+ * Uses cosine similarity between nomic-embed-text embeddings
  */
 export class OllamaClient {
   private ollamaUrl: string
-  private ollamaModel: string
+  private embeddingModel: string
   private isHealthy: boolean = false
+  private embeddingCache: Map<string, number[]> = new Map()
 
   constructor(
     ollamaUrl: string = 'http://localhost:11434',
-    ollamaModel: string = 'mistral'
+    embeddingModel: string = 'nomic-embed-text'
   ) {
     this.ollamaUrl = ollamaUrl.replace(/\/$/, '') // Remove trailing slash
-    this.ollamaModel = ollamaModel
-    
+    this.embeddingModel = embeddingModel
+
     // Log connection details for debugging
     if (typeof window !== 'undefined') {
-      console.debug(`[OllamaClient] Connecting to ${this.ollamaUrl} with model ${this.ollamaModel}`)
+      console.debug(
+        `[OllamaClient] Connecting to ${this.ollamaUrl} with embedding model ${this.embeddingModel}`
+      )
     }
   }
 
@@ -79,14 +86,17 @@ export class OllamaClient {
 
       const data = (await response.json()) as { models?: Array<{ name: string }> }
 
-      // Check if the desired model is available
-      if (data.models && !data.models.some((m) => m.name.includes(this.ollamaModel))) {
+      // Check if the desired embedding model is available
+      if (
+        data.models &&
+        !data.models.some((m) => m.name.includes(this.embeddingModel))
+      ) {
         const availableModels = data.models.map((m) => m.name).join(', ')
         const errorMsg =
-          `Ollama model '${this.ollamaModel}' not found.\n` +
+          `Ollama embedding model '${this.embeddingModel}' not found.\n` +
           `Available models: ${availableModels}\n` +
-          `To download: ollama pull ${this.ollamaModel}`
-        
+          `To download: ollama pull ${this.embeddingModel}`
+
         console.warn(`[OllamaClient] ${errorMsg}`)
         throw new OllamaConnectionError(errorMsg)
       }
@@ -126,108 +136,61 @@ export class OllamaClient {
   }
 
   /**
-   * Score semantic similarity of candidate articles to target
-   * Batch process all candidates in a single Ollama call
-   *
-   * @param candidates Array of articles with title and extract
-   * @param targetTitle The target article we're trying to reach
-   * @param timeout Timeout in ms for the Ollama call (default: 30000)
-   * @returns Map of title -> similarity score (0-100)
+   * Get embedding for a text string
+   * Cached per session to avoid redundant API calls
    */
-  async batchScoreSimilarity(
-    candidates: OllamaCandidateArticle[],
-    targetTitle: string,
-    timeout: number = 30000
-  ): Promise<Map<string, number>> {
-    if (candidates.length === 0) {
-      return new Map()
+  private async getEmbedding(text: string, timeout: number = 30000): Promise<number[]> {
+    // Check cache first
+    const cached = this.embeddingCache.get(text)
+    if (cached) {
+      return cached
     }
 
     try {
-      // Format candidates for the prompt
-      const candidatesText = candidates
-        .map((c) => `- **${c.title}**: ${c.extract.substring(0, 200)}...`)
-        .join('\n')
-
-      const prompt = `You are a semantic similarity expert analyzing Wikipedia articles to find the shortest path between topics.
-
-Target Article: **${targetTitle}**
-
-Rate how semantically similar each of these candidate articles is to helping reach the target (0-100, where 100 is perfect match):
-
-${candidatesText}
-
-Return ONLY a valid JSON object with no markdown formatting, like this:
-{"Article Title 1": 85, "Article Title 2": 42}
-
-Consider conceptual relatedness, topic overlap, and semantic proximity. Be precise with the JSON format.`
-
-      const response = await fetch(`${this.ollamaUrl}/api/generate`, {
+      const response = await fetch(`${this.ollamaUrl}/api/embed`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: this.ollamaModel,
-          prompt,
-          stream: false,
-          temperature: 0.3, // Lower temperature for more consistent scores
-          num_predict: 500, // Limit response length
+          model: this.embeddingModel,
+          input: text,
         }),
         signal: AbortSignal.timeout(timeout),
       })
 
       if (!response.ok) {
         throw new OllamaConnectionError(
-          `Ollama API returned status ${response.status}: ${response.statusText}`
+          `Ollama embed API returned status ${response.status}: ${response.statusText}`
         )
       }
 
-      const data = (await response.json()) as { response: string }
-      const responseText = data.response.trim()
+      const data = (await response.json()) as { embeddings?: number[][] }
 
-      // Extract JSON from response (it might have extra text)
-      const jsonMatch = responseText.match(/\{[^{}]*\}/)
-      if (!jsonMatch) {
-        throw new OllamaResponseError(`Could not parse JSON from Ollama response: ${responseText}`)
+      if (!data.embeddings || data.embeddings.length === 0) {
+        throw new OllamaResponseError('No embeddings returned from Ollama')
       }
 
-      const scores = JSON.parse(jsonMatch[0]) as Record<string, number>
-      const result = new Map<string, number>()
-
-      // Validate and normalize scores
-      for (const candidate of candidates) {
-        let score = scores[candidate.title]
-
-        // Handle missing or invalid scores
-        if (score === undefined || typeof score !== 'number') {
-          score = 50 // Default to neutral score
-        }
-
-        // Clamp to 0-100 range
-        score = Math.max(0, Math.min(100, score))
-
-        result.set(candidate.title, score)
-      }
-
-      return result
+      const embedding = data.embeddings[0]
+      this.embeddingCache.set(text, embedding)
+      return embedding
     } catch (error) {
-      // Handle timeout
       if (error instanceof Error && error.name === 'AbortError') {
         throw new OllamaTimeoutError(
-          `Ollama similarity scoring exceeded ${timeout}ms timeout. ` +
-          `Try with simpler articles or increase timeout.`
+          `Embedding request exceeded ${timeout}ms timeout. Text may be too long.`
         )
       }
 
-      // Re-throw custom errors
-      if (error instanceof OllamaConnectionError || error instanceof OllamaResponseError) {
+      if (
+        error instanceof OllamaConnectionError ||
+        error instanceof OllamaResponseError
+      ) {
         throw error
       }
 
       // Handle fetch errors
       if (error instanceof Error) {
-        let message = `Ollama request failed`
+        let message = `Failed to get embeddings from Ollama`
 
         if (error.message.includes('fetch failed')) {
           message +=
@@ -242,9 +205,124 @@ Consider conceptual relatedness, topic overlap, and semantic proximity. Be preci
         throw new OllamaConnectionError(message)
       }
 
-      throw new OllamaConnectionError(
-        `Ollama request failed: ${String(error)}`
+      throw new OllamaConnectionError(`Failed to get embeddings: ${String(error)}`)
+    }
+  }
+
+  /**
+   * Calculate cosine similarity between two vectors
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      throw new Error('Vectors must have the same length')
+    }
+
+    let dotProduct = 0
+    let normA = 0
+    let normB = 0
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i]
+      normA += a[i] * a[i]
+      normB += b[i] * b[i]
+    }
+
+    normA = Math.sqrt(normA)
+    normB = Math.sqrt(normB)
+
+    if (normA === 0 || normB === 0) {
+      return 0
+    }
+
+    return dotProduct / (normA * normB)
+  }
+
+  /**
+   * Score semantic similarity of candidate articles to target
+   * Uses embedding-based cosine similarity (much faster than LLM-based scoring)
+   *
+   * @param candidates Array of articles with title and extract
+   * @param targetTitle The target article we're trying to reach
+   * @param timeout Timeout in ms for embedding requests (default: 30000)
+   * @returns Map of title -> similarity score (0-100)
+   */
+  async batchScoreSimilarity(
+    candidates: OllamaCandidateArticle[],
+    targetTitle: string,
+    timeout: number = 30000
+  ): Promise<Map<string, number>> {
+    if (candidates.length === 0) {
+      return new Map()
+    }
+
+    try {
+      // Get target embedding once
+      const targetEmbedding = await this.getEmbedding(targetTitle, timeout)
+
+      // Get embeddings for all candidates in parallel
+      const embeddings = await Promise.all(
+        candidates.map((candidate) =>
+          this.getEmbedding(candidate.extract || candidate.title, timeout).catch(
+            () => null
+          )
+        )
       )
+
+      // Calculate cosine similarity for each candidate
+      const result = new Map<string, number>()
+      for (let i = 0; i < candidates.length; i++) {
+        const candidateEmbedding = embeddings[i]
+
+        if (!candidateEmbedding) {
+          // If embedding failed, use neutral score
+          result.set(candidates[i].title, 50)
+          continue
+        }
+
+        // Cosine similarity is -1 to 1, convert to 0-100 scale
+        const cosineSim = this.cosineSimilarity(targetEmbedding, candidateEmbedding)
+        const score = Math.round(((cosineSim + 1) / 2) * 100) // Map [-1, 1] to [0, 100]
+
+        result.set(candidates[i].title, score)
+      }
+
+      return result
+    } catch (error) {
+      // Handle timeout
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new OllamaTimeoutError(
+          `Embedding similarity scoring exceeded ${timeout}ms timeout. ` +
+          `Try with simpler articles or increase timeout.`
+        )
+      }
+
+      // Re-throw custom errors
+      if (
+        error instanceof OllamaConnectionError ||
+        error instanceof OllamaResponseError ||
+        error instanceof OllamaTimeoutError
+      ) {
+        throw error
+      }
+
+      // Handle fetch errors
+      if (error instanceof Error) {
+        let message = `Ollama embedding request failed`
+
+        if (error.message.includes('fetch failed')) {
+          message +=
+            `\n\nOllama is not responding.\n` +
+            `Make sure: ollama serve is running`
+        } else if (error.message.includes('ECONNREFUSED')) {
+          message += `\n\nConnection refused. Ollama may not be running.`
+        } else {
+          message += `\n\n${error.message}`
+        }
+
+        throw new OllamaConnectionError(message)
+      }
+
+      throw new OllamaConnectionError(`Ollama embedding request failed: ${String(error)}`)
     }
   }
 }

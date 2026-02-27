@@ -36,31 +36,6 @@ export class WikipediaCrawler implements ArticleCrawler {
     }
   }
 
-  /**
-   * Fetch the article extract/summary for semantic similarity scoring
-   * Used by A* algorithm for heuristic calculation
-   */
-  async getExtract(title: string): Promise<string> {
-    try {
-      const response = await fetch(`/api/wikipedia/article?title=${encodeURIComponent(title)}`)
-      const data = await response.json()
-
-      if (data.success && data.data?.extract) {
-        return data.data.extract
-      }
-
-      // Return empty string on error
-      if (!data.success) {
-        console.warn(`Failed to fetch article for "${title}": ${data.error}`)
-      }
-
-      return ''
-    } catch (error) {
-      console.error(`Failed to fetch extract for ${title}:`, error)
-      return ''
-    }
-  }
-
   async batchCrawl(titles: string[]): Promise<CrawlResult[]> {
     // Fetch all articles in parallel
     const promises = titles.map((title) => this.crawl(title))

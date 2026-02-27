@@ -142,41 +142,15 @@ export class AStarPathfinder extends BasePathfinder {
     const visited = new Set<string>()
     const nodes = new Map<string, PathNode>()
 
-    // Session-scoped cache for similarity scores and extracts (for this search only)
+    // Session-scoped cache for similarity scores (for this search only)
     const similarityCache = new Map<string, number>()
-    const extractCache = new Map<string, string>()
 
     // Initialize start node
     gScore.set(startTitle, 0)
 
-    // Get initial heuristic for start node
+    // Get initial heuristic for start node using just titles
     try {
-      const startExtract = await (crawler as any).getExtract(startTitle)
-      if (!startExtract) {
-        return this.createErrorResult(
-          startTitle,
-          endTitle,
-          'invalid_start',
-          'a*',
-          Date.now() - startTime
-        )
-      }
-      extractCache.set(startTitle, startExtract)
-
-      const endExtract = await (crawler as any).getExtract(endTitle)
-      if (!endExtract) {
-        return this.createErrorResult(
-          startTitle,
-          endTitle,
-          'invalid_end',
-          'a*',
-          Date.now() - startTime
-        )
-      }
-      extractCache.set(endTitle, endExtract)
-
-      // Calculate initial h value for start
-      const h = await this.calculateHeuristic(startTitle, startExtract, endTitle, startTime, timeout, similarityCache)
+      const h = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache)
       hScore.set(startTitle, h)
       fScore.set(startTitle, h)
 
@@ -268,46 +242,15 @@ export class AStarPathfinder extends BasePathfinder {
           continue
         }
 
-        // Fetch extracts for all unvisited neighbors
-        const neighborExtracts = new Map<string, string>()
-        for (const neighbor of unvisitedNeighbors) {
-          const cached = extractCache.get(neighbor)
-          if (cached) {
-            neighborExtracts.set(neighbor, cached)
-          } else {
-            const extract = await (crawler as any).getExtract(neighbor)
-            neighborExtracts.set(neighbor, extract)
-            // Cache for future use in this session
-            if (extract) {
-              extractCache.set(neighbor, extract)
-            }
-          }
-        }
-
-        // Get target extract (cached from initial check)
-        const targetExtract = extractCache.get(endTitle)
-        if (!targetExtract) {
-          // This shouldn't happen as we fetched it earlier
-          return this.createErrorResult(
-            startTitle,
-            endTitle,
-            'crawl_error',
-            'a*',
-            Date.now() - startTime
-          )
-        }
-
-        // Batch score all neighbors
+        // Batch score all neighbors using just their titles
         try {
           const scores = await this.ollama.batchScoreSimilarity(
-            unvisitedNeighbors
-              .map((title) => ({
-                title,
-                extract: neighborExtracts.get(title) || '',
-              }))
-              .filter((item) => item.extract), // Only score those with extracts
+            unvisitedNeighbors.map((title) => ({
+              title,
+              extract: title, // Use title as text for embedding
+            })),
             endTitle,
-            30000 // 30 second timeout for batch scoring
+            10000 // 10 second timeout for embedding-based batch scoring
           )
 
           // Process each neighbor
@@ -387,7 +330,6 @@ export class AStarPathfinder extends BasePathfinder {
    */
   private async calculateHeuristic(
     nodeTitle: string,
-    nodeExtract: string,
     targetTitle: string,
     startTime: number,
     timeout: number,
@@ -405,11 +347,11 @@ export class AStarPathfinder extends BasePathfinder {
       throw new OllamaTimeoutError('Overall search timeout reached while calculating heuristic')
     }
 
-    // Score similarity
+    // Score similarity using just the title
     const scores = await this.ollama.batchScoreSimilarity(
-      [{ title: nodeTitle, extract: nodeExtract }],
+      [{ title: nodeTitle, extract: nodeTitle }],
       targetTitle,
-      30000 // 30 second timeout for this batch
+      10000 // 10 second timeout for embedding-based scoring
     )
 
     const similarityScore = scores.get(nodeTitle) || 50

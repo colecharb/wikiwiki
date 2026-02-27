@@ -88,16 +88,24 @@ A* is an informed search algorithm that combines:
 
 The algorithm explores nodes in order of lowest f-score, ensuring optimal path while being more efficient than Dijkstra.
 
-### Semantic Similarity Heuristic
+### Semantic Similarity Heuristic via Embeddings
 
-The h-score (heuristic) is derived from semantic similarity scoring:
+The h-score (heuristic) is derived from embedding-based semantic similarity:
 
-1. **Article Extraction**: For each candidate link, fetch its Wikipedia extract (first paragraph)
-2. **Batch Scoring**: All candidate links are scored together in a single Ollama call for efficiency
-3. **Mistral Evaluation**: Mistral model scores each article's semantic similarity to the target (0-100)
-4. **Heuristic Conversion**: Score is converted to h-value: `h = (100 - score) / 100`
+1. **Title-Based Embeddings**: Use article titles to generate embeddings (no need to fetch full content)
+2. **Embedding Generation**: Get embeddings for target and candidate articles using nomic-embed-text
+3. **Cosine Similarity**: Calculate similarity using cosine distance between embedding vectors (0-100 scale)
+4. **Batch Processing**: All candidate embeddings computed in parallel for efficiency
+5. **Heuristic Conversion**: Score is converted to h-value: `h = (100 - score) / 100`
    - Similar to target (score 100) → h ≈ 0 (looks promising)
    - Dissimilar (score 0) → h ≈ 1 (looks unpromising)
+
+**Why embeddings with just titles?**
+- ⚡ **Ultra-fast** - no need to fetch article content, uses lightweight titles
+- 🎯 **More precise** semantic similarity using proven embedding models
+- 💾 **Cached** per session to avoid redundant computations
+- ✨ **Parallel** embedding computation for all candidates at once
+- 📉 **Minimal network traffic** - only article titles sent to Ollama
 
 ### Efficiency Improvements
 
@@ -197,12 +205,15 @@ ollama pull dolphin-mixtral # More powerful but slower
 
 Mistral is recommended because it's fast (~1-2s per batch) while providing good semantic understanding.
 
-### Batch Scoring Details
+### Embedding-Based Scoring Details
 
-- All links from one article are scored in a **single Ollama call**
-- Timeout per batch: **30 seconds**
-- Default temperature: **0.3** (low for consistency)
-- Response limit: **500 tokens**
+- Uses only **article titles** (no content fetching needed)
+- All candidate embeddings computed in **parallel**
+- Timeout per batch: **10 seconds** (very fast due to title-only processing)
+- Uses **nomic-embed-text** model for high-quality semantic embeddings
+- Cosine similarity calculated locally (no additional API calls)
+- Session-scoped embedding cache prevents redundant computations
+- Minimal network overhead - only titles and embeddings transmitted
 
 ## Implementation Details
 
