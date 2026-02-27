@@ -45,10 +45,10 @@ export default function PathVisualization({
         Path ({path.length} articles)
       </div>
 
-      {/* Scrollable path container - vertical */}
+      {/* Scrollable path container - vertical on desktop, full height on mobile */}
       <div
         ref={containerRef}
-        className="overflow-y-auto max-h-96 pb-4 scroll-smooth border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-gray-50 dark:bg-zinc-900"
+        className="overflow-y-auto md:max-h-96 pb-4 scroll-smooth border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-gray-50 dark:bg-zinc-900"
       >
         <div className="flex flex-col gap-3">
           {path.map((title, index) => {
