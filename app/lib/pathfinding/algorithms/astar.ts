@@ -11,6 +11,7 @@ import {
   OllamaTimeoutError,
   OllamaResponseError,
 } from '@/app/lib/ollama'
+import { getProgressTracker } from '@/app/lib/pathfinding/progress'
 
 /**
  * Priority queue for A* algorithm
@@ -148,6 +149,16 @@ export class AStarPathfinder extends BasePathfinder {
     // Initialize start node
     gScore.set(startTitle, 0)
 
+    // Emit search start progress
+    const progressTracker = getProgressTracker()
+    if (progressTracker.getSubscriberCount() > 0) {
+      progressTracker.emit({
+        type: 'searching_start',
+        currentArticle: startTitle,
+        targetArticle: endTitle,
+      })
+    }
+
     // Get initial heuristic for start node using just titles
     try {
       const h = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache)
@@ -212,6 +223,16 @@ export class AStarPathfinder extends BasePathfinder {
         if (typeof window !== 'undefined') {
           console.debug(`[A*] Path found! Distance: ${path.length - 1} hops. Visited ${visited.size} nodes`)
         }
+
+        // Emit progress update for found
+        if (progressTracker.getSubscriberCount() > 0) {
+          progressTracker.emit({
+            type: 'found',
+            currentArticle: endTitle,
+            visitedCount: visited.size,
+          })
+        }
+
         return {
           found: true,
           path,
@@ -233,6 +254,15 @@ export class AStarPathfinder extends BasePathfinder {
       
       if (typeof window !== 'undefined') {
         console.debug(`[A*] Exploring: ${currentTitle} (visited: ${visited.size})`)
+      }
+
+      // Emit progress update for exploring
+      if (progressTracker.getSubscriberCount() > 0) {
+        progressTracker.emit({
+          type: 'exploring',
+          currentArticle: currentTitle,
+          visitedCount: visited.size,
+        })
       }
 
       // Crawl links from current article
@@ -287,6 +317,15 @@ export class AStarPathfinder extends BasePathfinder {
             console.debug(
               `[A*] Scoring ${unvisitedNeighbors.length} neighbors for target "${endTitle}"`
             )
+          }
+
+          // Emit progress update for scoring
+          if (progressTracker.getSubscriberCount() > 0) {
+            progressTracker.emit({
+              type: 'scoring',
+              neighborsCount: unvisitedNeighbors.length,
+              targetArticle: endTitle,
+            })
           }
           
           const scores = await this.ollama.batchScoreSimilarity(

@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PathFinderForm from './PathFinderForm'
 import PathVisualization from './PathVisualization'
 import PathStats from './PathStats'
 import PathErrorDisplay from './PathErrorDisplay'
+import PathfindingProgress from './PathfindingProgress'
 import type { PathResult } from '@/app/lib/pathfinding'
 import type { Article } from '@/app/lib/wikipedia'
+import { getProgressTracker } from '@/app/lib/pathfinding/progress'
+import type { ProgressUpdate } from '@/app/lib/pathfinding/progress'
 
 interface ResultsContainerProps {
   onPathFound?: (result: PathResult) => void
@@ -15,9 +18,25 @@ interface ResultsContainerProps {
 export default function ResultsContainer({ onPathFound }: ResultsContainerProps) {
   const [result, setResult] = useState<PathResult | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [progressUpdates, setProgressUpdates] = useState<ProgressUpdate[]>([])
+  const [startArticle, setStartArticle] = useState<string>('')
+  const [endArticle, setEndArticle] = useState<string>('')
+
+  // Subscribe to progress updates
+  useEffect(() => {
+    const progressTracker = getProgressTracker()
+    const unsubscribe = progressTracker.subscribe((update: ProgressUpdate) => {
+      setProgressUpdates((prev) => [...prev, update])
+    })
+
+    return unsubscribe
+  }, [])
 
   const handleFindPath = async (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean }) => {
     setIsSearching(true)
+    setProgressUpdates([])
+    setStartArticle(start.title)
+    setEndArticle(end.title)
     
     try {
       // Import here to avoid circular dependencies
@@ -69,14 +88,12 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
       {/* Results area - full width below form */}
       <div className="space-y-6">
         {isSearching && (
-          <div className="p-6 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <div className="text-blue-700 dark:text-blue-300 font-medium">
-                Searching for path...
-              </div>
-            </div>
-          </div>
+          <PathfindingProgress
+            updates={progressUpdates}
+            isActive={isSearching}
+            startArticle={startArticle}
+            endArticle={endArticle}
+          />
         )}
 
         {result && !result.found && (
