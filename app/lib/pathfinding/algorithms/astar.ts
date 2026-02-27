@@ -220,6 +220,12 @@ export class AStarPathfinder extends BasePathfinder {
       if (!current) break
 
       const currentTitle = current.title
+      
+      if (typeof window !== 'undefined') {
+        console.debug(`[A*] Popped from openSet: "${currentTitle}" (fScore: ${current.fScore})`)
+        console.debug(`[A*] Is currentTitle in gScore? ${gScore.has(currentTitle)} (gScore.get = ${gScore.get(currentTitle)})`)
+        console.debug(`[A*] All keys in gScore: ${Array.from(gScore.keys()).join(', ')}`)
+      }
 
       // Found target!
       if (currentTitle === endTitle) {
