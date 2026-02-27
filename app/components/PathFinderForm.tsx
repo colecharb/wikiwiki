@@ -6,7 +6,7 @@ import ArticlePreview from './ArticlePreview'
 import type { Article } from '@/app/lib/wikipedia'
 
 interface PathFinderFormProps {
-  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string, ollamaUrl?: string }) => void
+  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string }) => void
   onArticleChange?: () => void
   isSearching?: boolean
   onStop?: () => void
@@ -21,15 +21,8 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('snowflake-arctic-embed:xs')
   const [loadingModels, setLoadingModels] = useState(false)
-  const [ollamaUrl, setOllamaUrl] = useState<string>(() => {
-    // Try to load from localStorage
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('ollamaUrl') || 'http://localhost:11434'
-    }
-    return 'http://localhost:11434'
-  })
-  const [showOllamaConfig, setShowOllamaConfig] = useState(false)
   const [ollamaError, setOllamaError] = useState<string>('')
+  const ollamaUrl = 'http://localhost:11434' // Always use localhost
 
   // Use prop if provided, otherwise use local state
   const searching = isSearchingProp || isSearching
@@ -45,18 +38,10 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     setLoadingModels(true)
     setOllamaError('')
     try {
-      // Save URL to localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('ollamaUrl', ollamaUrl)
-      }
-      
-      // Use API proxy route to bypass CORS restrictions
-      const encodedUrl = encodeURIComponent(ollamaUrl)
-      const response = await fetch(`/api/ollama/tags?url=${encodedUrl}`)
+      const response = await fetch(`${ollamaUrl}/api/tags`)
       
       if (!response.ok) {
-        const errorData = (await response.json()) as { error?: string }
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data = (await response.json()) as { models?: Array<{ name: string }> }
@@ -70,7 +55,6 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('Failed to fetch Ollama models:', errorMessage)
       setOllamaError(errorMessage)
       setOllamaModels([])
     } finally {
@@ -92,7 +76,7 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     if (!startArticle || !endArticle) return
 
     if (onFindPath) {
-      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation, ollamaModel: selectedModel, ollamaUrl })
+      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation, ollamaModel: selectedModel })
     }
   }
 
@@ -128,36 +112,6 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
         {/* Ollama Model Dropdown - Only show for A* algorithm */}
         {algorithm === 'a*' && (
           <div className="space-y-2">
-            {/* Ollama URL Configuration */}
-            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded">
-              <button
-                onClick={() => setShowOllamaConfig(!showOllamaConfig)}
-                className="text-xs font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200 flex items-center gap-1"
-              >
-                {showOllamaConfig ? '▼' : '▶'} Ollama Configuration
-              </button>
-              
-              {showOllamaConfig && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">
-                    {typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-                      ? '⚠️ You\'re using a deployed version. Enter your Ollama URL to use A*'
-                      : 'Configure your Ollama server URL'}
-                  </p>
-                  <input
-                    type="text"
-                    value={ollamaUrl}
-                    onChange={(e) => setOllamaUrl(e.target.value)}
-                    placeholder="http://localhost:11434"
-                    className="w-full px-3 py-2 text-sm bg-white dark:bg-zinc-800 border border-blue-300 dark:border-blue-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Example: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">http://your-ip:11434</code>
-                  </p>
-                </div>
-              )}
-            </div>
-
             <div className="flex items-center justify-between">
               <label htmlFor="ollama-model" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Embedding Model
