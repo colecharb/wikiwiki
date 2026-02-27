@@ -12,7 +12,7 @@ export default function OllamaDebugPanel() {
   const handleRunDiagnostics = async () => {
     setIsLoading(true)
     try {
-      const info = await diagnoseOllama('http://localhost:11434', 'nomic-embed-text')
+      const info = await diagnoseOllama('http://localhost:11434', 'snowflake-arctic-embed:xs')
       const report = formatDiagnosisReport(info)
       setDiagnosticsReport(report)
     } catch (error) {
@@ -27,7 +27,7 @@ export default function OllamaDebugPanel() {
   const handleTestAPI = async () => {
     setIsLoading(true)
     try {
-      const result = await testOllamaAPI('http://localhost:11434', 'nomic-embed-text')
+      const result = await testOllamaAPI('http://localhost:11434', 'snowflake-arctic-embed:xs')
       const message =
         `Test ${result.success ? '✅ PASSED' : '❌ FAILED'}\n` +
         `Response time: ${result.responseTime}ms\n` +
@@ -114,12 +114,12 @@ export default function OllamaDebugPanel() {
                       ollama serve
                     </code>
                   </p>
-                  <p>
-                    <strong>Download nomic-embed-text:</strong>{' '}
-                    <code className="bg-gray-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                      ollama pull nomic-embed-text
-                    </code>
-                  </p>
+                   <p>
+                     <strong>Download snowflake-arctic-embed:xs:</strong>{' '}
+                     <code className="bg-gray-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                       ollama pull snowflake-arctic-embed:xs
+                     </code>
+                   </p>
                   <p>
                     <strong>List Models:</strong>{' '}
                     <code className="bg-gray-100 dark:bg-zinc-800 px-2 py-1 rounded">
