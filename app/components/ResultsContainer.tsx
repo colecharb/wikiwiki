@@ -5,6 +5,7 @@ import PathFinderForm from './PathFinderForm'
 import PathVisualization from './PathVisualization'
 import PathStats from './PathStats'
 import PathErrorDisplay from './PathErrorDisplay'
+import PathPlaceholder from './PathPlaceholder'
 import type { PathResult } from '@/app/lib/pathfinding'
 import type { Article } from '@/app/lib/wikipedia'
 
@@ -74,6 +75,8 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
             </div>
           </div>
         )}
+
+        {!isSearching && !result && <PathPlaceholder />}
 
         {result && !result.found && (
           <PathErrorDisplay
