@@ -350,11 +350,23 @@ export class AStarPathfinder extends BasePathfinder {
             120000 // 120 second timeout - sequential batching of embeddings
           )
 
+          if (typeof window !== 'undefined') {
+            console.debug(
+              `[A*] Got scores for ${scores.size} neighbors. Sample scores:`,
+              Array.from(scores.entries())
+                .slice(0, 5)
+                .map(([title, score]) => `${title}: ${score}`)
+                .join(', ')
+            )
+          }
+
           // Process each neighbor
+          let addedCount = 0
           for (const neighbor of unvisitedNeighbors) {
             const tentativeG = (gScore.get(currentTitle) || Infinity) + 1
+            const currentBestG = gScore.get(neighbor) || Infinity
 
-            if (tentativeG < (gScore.get(neighbor) || Infinity)) {
+            if (tentativeG < currentBestG) {
               // This path is better
               cameFrom.set(neighbor, currentTitle)
               gScore.set(neighbor, tentativeG)
@@ -380,11 +392,16 @@ export class AStarPathfinder extends BasePathfinder {
 
               // Add to open set
               openSet.addOrUpdate(neighbor, f)
+              addedCount++
               
               if (typeof window !== 'undefined' && neighbor === endTitle) {
                 console.debug(`[A*] Target added to open set! Distance: ${tentativeG}, f-score: ${f}`)
               }
             }
+          }
+
+          if (typeof window !== 'undefined') {
+            console.debug(`[A*] Added ${addedCount} neighbors to open set (out of ${unvisitedNeighbors.length})`)
           }
         } catch (error) {
           if (error instanceof OllamaTimeoutError) {
