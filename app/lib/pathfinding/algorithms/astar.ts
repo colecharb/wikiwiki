@@ -295,7 +295,7 @@ export class AStarPathfinder extends BasePathfinder {
           continue
         }
 
-        // Batch score all neighbors using just their titles
+        // Batch score all neighbors with their article extracts for context
         try {
           const preScoringG = gScore.get(currentTitle) !== undefined ? gScore.get(currentTitle) : Infinity
 
@@ -307,11 +307,34 @@ export class AStarPathfinder extends BasePathfinder {
               targetArticle: endTitle,
             })
           }
+
+          // Fetch article extracts for context
+          let extracts: Record<string, string> = {}
+          try {
+            const titlesParam = unvisitedNeighbors.join('|')
+            const extractResponse = await fetch(
+              `/api/wikipedia/extract?titles=${encodeURIComponent(titlesParam)}`
+            )
+            if (extractResponse.ok) {
+              const extractData = (await extractResponse.json()) as { success: boolean; data?: Record<string, { extract: string }> }
+              if (extractData.success && extractData.data) {
+                extracts = Object.entries(extractData.data).reduce(
+                  (acc, [title, data]) => {
+                    acc[title] = data.extract
+                    return acc
+                  },
+                  {} as Record<string, string>
+                )
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to fetch extracts, continuing with titles only:', error)
+          }
           
           const scores = await this.ollama.batchScoreSimilarity(
             unvisitedNeighbors.map((title) => ({
               title,
-              extract: title, // Use title as text for embedding
+              extract: extracts[title] || title, // Use extract if available, fallback to title
             })),
             endTitle,
             120000 // 120 second timeout - sequential batching of embeddings
