@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import PathFinderForm from './PathFinderForm'
 import PathVisualization from './PathVisualization'
 import PathStats from './PathStats'
@@ -21,6 +21,7 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
   const [progressUpdates, setProgressUpdates] = useState<ProgressUpdate[]>([])
   const [startArticle, setStartArticle] = useState<string>('')
   const [endArticle, setEndArticle] = useState<string>('')
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Subscribe to progress updates
   useEffect(() => {
@@ -32,26 +33,53 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
     return unsubscribe
   }, [])
 
-  const handleFindPath = async (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean }) => {
+   const handleFindPath = async (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string }) => {
     setIsSearching(true)
     setProgressUpdates([])
+    setResult(null) // Clear previous path
     setStartArticle(start.title)
     setEndArticle(end.title)
+    
+    // Create new abort controller for this search
+    abortControllerRef.current = new AbortController()
     
     try {
       // Import here to avoid circular dependencies
       const { findPathBetweenArticles } = await import('@/app/lib/pathfinding')
       
       const pathResult = await findPathBetweenArticles(start.title, end.title, {
-        timeout: 60000,
+        timeout: 300000, // 5 minutes
         algorithm: options.algorithm,
         useCache: true,
         includeDisambiguation: options.includeDisambiguation,
+        ollamaModel: options.ollamaModel,
       })
+      
+      // Check if search was aborted
+      if (abortControllerRef.current?.signal.aborted) {
+        setResult({
+          found: false,
+          path: [],
+          nodes: new Map(),
+          distance: 0,
+          startTitle: start.title,
+          endTitle: end.title,
+          duration: 0,
+          algorithm: 'bfs',
+          error: 'Search cancelled',
+          errorType: 'timeout',
+        })
+        return
+      }
       
       setResult(pathResult)
       onPathFound?.(pathResult)
     } catch (error) {
+      // Don't show error if search was aborted
+      if (abortControllerRef.current?.signal.aborted) {
+        return
+      }
+      
       console.error('Error finding path:', error)
       setResult({
         found: false,
@@ -67,12 +95,22 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
       })
     } finally {
       setIsSearching(false)
+      abortControllerRef.current = null
     }
   }
 
-  const handleReset = () => {
-    setResult(null)
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsSearching(false)
   }
+
+   const handleReset = () => {
+     setResult(null)
+     setProgressUpdates([])
+   }
 
   return (
     <div className="w-full space-y-8">
@@ -81,20 +119,21 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
         <PathFinderForm 
           onFindPath={handleFindPath} 
           onArticleChange={handleReset}
-          isSearching={isSearching} 
+          isSearching={isSearching}
+          onStop={handleStop}
         />
       </div>
 
-      {/* Results area - full width below form */}
-      <div className="space-y-6">
-        {isSearching && (
-          <PathfindingProgress
-            updates={progressUpdates}
-            isActive={isSearching}
-            startArticle={startArticle}
-            endArticle={endArticle}
-          />
-        )}
+       {/* Results area - full width below form */}
+       <div className="space-y-6">
+         {(isSearching || progressUpdates.length > 0) && (
+           <PathfindingProgress
+             updates={progressUpdates}
+             isActive={isSearching}
+             startArticle={startArticle}
+             endArticle={endArticle}
+           />
+         )}
 
         {result && !result.found && (
           <PathErrorDisplay
