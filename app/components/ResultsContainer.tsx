@@ -33,7 +33,7 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
     return unsubscribe
   }, [])
 
-   const handleFindPath = async (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string }) => {
+   const handleFindPath = async (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string, ollamaUrl?: string }) => {
     setIsSearching(true)
     setProgressUpdates([])
     setResult(null) // Clear previous path
@@ -53,6 +53,7 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
         useCache: true,
         includeDisambiguation: options.includeDisambiguation,
         ollamaModel: options.ollamaModel,
+        ollamaUrl: options.ollamaUrl,
       })
       
       // Check if search was aborted

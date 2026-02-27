@@ -6,7 +6,7 @@ import ArticlePreview from './ArticlePreview'
 import type { Article } from '@/app/lib/wikipedia'
 
 interface PathFinderFormProps {
-  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string }) => void
+  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string, ollamaUrl?: string }) => void
   onArticleChange?: () => void
   isSearching?: boolean
   onStop?: () => void
@@ -21,6 +21,14 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('snowflake-arctic-embed:xs')
   const [loadingModels, setLoadingModels] = useState(false)
+  const [ollamaUrl, setOllamaUrl] = useState<string>(() => {
+    // Try to load from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ollamaUrl') || 'http://localhost:11434'
+    }
+    return 'http://localhost:11434'
+  })
+  const [showOllamaConfig, setShowOllamaConfig] = useState(false)
 
   // Use prop if provided, otherwise use local state
   const searching = isSearchingProp || isSearching
@@ -35,7 +43,12 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
   const fetchOllamaModels = async () => {
     setLoadingModels(true)
     try {
-      const response = await fetch('http://localhost:11434/api/tags')
+      // Save URL to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ollamaUrl', ollamaUrl)
+      }
+      
+      const response = await fetch(`${ollamaUrl}/api/tags`)
       if (!response.ok) {
         throw new Error('Failed to fetch models')
       }
@@ -69,7 +82,7 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     if (!startArticle || !endArticle) return
 
     if (onFindPath) {
-      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation, ollamaModel: selectedModel })
+      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation, ollamaModel: selectedModel, ollamaUrl })
     }
   }
 
@@ -105,6 +118,36 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
         {/* Ollama Model Dropdown - Only show for A* algorithm */}
         {algorithm === 'a*' && (
           <div className="space-y-2">
+            {/* Ollama URL Configuration */}
+            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded">
+              <button
+                onClick={() => setShowOllamaConfig(!showOllamaConfig)}
+                className="text-xs font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200 flex items-center gap-1"
+              >
+                {showOllamaConfig ? '▼' : '▶'} Ollama Configuration
+              </button>
+              
+              {showOllamaConfig && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">
+                    {typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+                      ? '⚠️ You\'re using a deployed version. Enter your Ollama URL to use A*'
+                      : 'Configure your Ollama server URL'}
+                  </p>
+                  <input
+                    type="text"
+                    value={ollamaUrl}
+                    onChange={(e) => setOllamaUrl(e.target.value)}
+                    placeholder="http://localhost:11434"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-zinc-800 border border-blue-300 dark:border-blue-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Example: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">http://your-ip:11434</code>
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between">
               <label htmlFor="ollama-model" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Embedding Model
