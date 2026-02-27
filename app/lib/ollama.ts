@@ -278,8 +278,7 @@ export class OllamaClient {
   async batchScoreSimilarity(
     candidates: OllamaCandidateArticle[],
     targetTitle: string,
-    timeout: number = 30000,
-    targetExtract?: string
+    timeout: number = 30000
   ): Promise<Map<string, number>> {
     if (candidates.length === 0) {
       return new Map()
@@ -289,11 +288,8 @@ export class OllamaClient {
       // Get target embedding once (30 second individual timeout)
       let targetEmbedding: number[] | null = null
       try {
-        // Combine title and extract for better semantic understanding
-        const targetText = targetExtract && targetExtract !== targetTitle
-          ? `${targetTitle}\n${targetExtract}`
-          : targetTitle
-        targetEmbedding = await this.getEmbedding(targetText, 30000)
+        // Use just the title for now (extracts not working as expected)
+        targetEmbedding = await this.getEmbedding(targetTitle, 30000)
       } catch (error) {
         // If target embedding fails, continue with neutral scores
       }
@@ -307,17 +303,13 @@ export class OllamaClient {
           
            // Get embeddings for this batch in parallel
            // Each individual embedding gets 30 second timeout (reasonable per request)
-           // Combine title and extract for richer context
+           // Use just titles for now
            const batchEmbeddings = await Promise.all(
-             batch.map((candidate) => {
-               // Combine title and extract for better semantic understanding
-               const fullText = candidate.title === candidate.extract 
-                 ? candidate.title 
-                 : `${candidate.title}\n${candidate.extract}`
-               return this.getEmbedding(fullText, 30000).catch(
+             batch.map((candidate) =>
+               this.getEmbedding(candidate.title, 30000).catch(
                 () => null
               )
-            })
+            )
           )
           
           embeddings.push(...batchEmbeddings)
