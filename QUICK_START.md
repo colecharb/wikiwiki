@@ -50,7 +50,7 @@ Click the **🔧 Ollama Debug** button in the bottom-right corner of the app. Th
 | Issue | Solution |
 |-------|----------|
 | "Failed to connect" | Make sure `ollama serve` is running in a terminal |
-| "Model not found" | Run `ollama pull mistral` |
+| "Model not found" | Run `ollama pull nomic-embed-text` |
 | "Connection refused" | Start Ollama with `ollama serve` |
 | Slow response | Try with simpler articles or different algorithm |
 

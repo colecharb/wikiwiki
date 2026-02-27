@@ -71,7 +71,7 @@ export type PathfindingOptions = {
   useCache?: boolean // Use cached links (default: true)
   includeDisambiguation?: boolean // Include disambiguation pages (default: false)
   ollamaUrl?: string // Ollama server URL (default: 'http://localhost:11434') - required for A*
-  ollamaModel?: string // Ollama model name (default: 'mistral') - required for A*
+  ollamaModel?: string // Ollama embedding model name (default: 'nomic-embed-text') - required for A*
 }
 
 /**

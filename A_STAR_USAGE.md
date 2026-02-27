@@ -13,14 +13,14 @@ Then start the Ollama server:
 ollama serve
 ```
 
-### 2. Download Mistral Model
+### 2. Download nomic-embed-text Model
 
-In another terminal, download the Mistral model (used for similarity scoring):
+In another terminal, download the embedding model (used for semantic similarity):
 ```bash
-ollama pull mistral
+ollama pull nomic-embed-text
 ```
 
-The first pull will take a few minutes. You only need to do this once.
+The first pull will take 1-2 minutes. You only need to do this once.
 
 ## Usage
 
@@ -32,7 +32,7 @@ import { findPathBetweenArticles } from '@/app/lib/pathfinding'
 const result = await findPathBetweenArticles('Albert Einstein', 'Philosophy', {
   algorithm: 'a*',
   // ollamaUrl defaults to 'http://localhost:11434'
-  // ollamaModel defaults to 'mistral'
+  // ollamaModel defaults to 'nomic-embed-text'
 })
 
 if (result.found) {
@@ -53,7 +53,7 @@ If you're running Ollama on a different host/port:
 const result = await findPathBetweenArticles('Newton', 'Einstein', {
   algorithm: 'a*',
   ollamaUrl: 'http://192.168.1.100:11434', // Custom Ollama server
-  ollamaModel: 'mistral', // Or use a different model
+  ollamaModel: 'nomic-embed-text', // Or use a different embedding model
   timeout: 120000, // 2 minute timeout
 })
 ```
@@ -194,16 +194,12 @@ Cache is cleared between searches (session-scoped).
 Different Ollama models have different characteristics:
 
 ```bash
-# Mistral (recommended for similarity scoring)
-ollama pull mistral        # ~4.1GB, balanced speed/quality
-ollama pull mistral:7b     # Smaller variant
-
-# Other options
-ollama pull neural-chat    # Optimized for text understanding
-ollama pull dolphin-mixtral # More powerful but slower
+# Embedding models (recommended for similarity scoring)
+ollama pull nomic-embed-text    # ~0.3GB, ultra-fast, excellent quality
+ollama pull embeddinggemma      # ~0.6GB, fast, excellent quality
 ```
 
-Mistral is recommended because it's fast (~1-2s per batch) while providing good semantic understanding.
+nomic-embed-text is recommended because it's ultra-fast (<200ms per batch) with excellent semantic quality.
 
 ### Embedding-Based Scoring Details
 
@@ -244,7 +240,7 @@ interface PathfindingOptions {
   // ... existing options ...
   algorithm?: 'bfs' | 'dijkstra' | 'a*'
   ollamaUrl?: string        // Default: 'http://localhost:11434'
-  ollamaModel?: string      // Default: 'mistral'
+  ollamaModel?: string      // Default: 'nomic-embed-text'
 }
 ```
 
@@ -262,11 +258,11 @@ Check it's accessible:
 curl http://localhost:11434/api/tags
 ```
 
-### "Ollama model 'mistral' not found"
+### "Ollama model 'nomic-embed-text' not found"
 
 **Solution**: Download the model:
 ```bash
-ollama pull mistral
+ollama pull nomic-embed-text
 ```
 
 ### "Ollama similarity scoring exceeded timeout"
@@ -417,7 +413,7 @@ export default function AStarExample() {
 ## Next Steps
 
 1. **Start Ollama**: `ollama serve`
-2. **Download Mistral**: `ollama pull mistral`
+2. **Download nomic-embed-text**: `ollama pull nomic-embed-text`
 3. **Use A* in your code**: Pass `algorithm: 'a*'` to `findPathBetweenArticles()`
 4. **Monitor Performance**: Compare A* with BFS using different article pairs
-5. **Customize**: Adjust Ollama model, timeout, or scoring prompt as needed
+5. **Customize**: Adjust Ollama model or timeout as needed

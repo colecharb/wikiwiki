@@ -29,7 +29,7 @@ export async function findPathBetweenArticles(
     useCache = true,
     includeDisambiguation = false,
     ollamaUrl = 'http://localhost:11434',
-    ollamaModel = 'mistral',
+    ollamaModel = 'nomic-embed-text',
   } = options
 
   // Setup crawler with caching if enabled

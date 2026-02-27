@@ -3,7 +3,7 @@
 ## Status Check
 
 ✅ **Ollama is running** at `http://localhost:11434`
-✅ **Mistral model available** (4.4GB, perfect for similarity scoring)
+✅ **nomic-embed-text model available** (perfect for semantic similarity via embeddings)
 ✅ **Additional models available**: qwen3:4b, embeddinggemma:latest
 
 ## Quick Start
@@ -34,18 +34,18 @@ ollama serve
 **Option C: From Applications**
 - Open Applications → Utilities → Ollama
 
-### 3. Verify Mistral Model
+### 3. Verify nomic-embed-text Model
 
-Make sure Mistral is downloaded:
+Make sure nomic-embed-text is downloaded:
 ```bash
 curl http://localhost:11434/api/tags | jq '.models[].name'
 ```
 
-You should see `mistral:latest` in the output.
+You should see `nomic-embed-text:latest` in the output.
 
-If Mistral is not listed, download it:
+If nomic-embed-text is not listed, download it:
 ```bash
-ollama pull mistral
+ollama pull nomic-embed-text
 ```
 
 ## Connection Troubleshooting
@@ -63,17 +63,17 @@ curl http://localhost:11434/api/tags
 ollama serve
 ```
 
-### Issue 2: Model not found (mistral)
+### Issue 2: Model not found (nomic-embed-text)
 
-**Symptom**: "Ollama model 'mistral' not found" warning
+**Symptom**: "Ollama model 'nomic-embed-text' not found" warning
 
 **Solution**:
 ```bash
-# Download Mistral (takes 5-10 minutes first time)
-ollama pull mistral
+# Download nomic-embed-text (takes 1-2 minutes first time)
+ollama pull nomic-embed-text
 
 # Verify it's installed
-curl http://localhost:11434/api/tags | grep mistral
+curl http://localhost:11434/api/tags | grep nomic
 ```
 
 ### Issue 3: Connection timeout
@@ -134,37 +134,34 @@ If Ollama is on a different machine:
 const result = await findPathBetweenArticles('Albert Einstein', 'Philosophy', {
   algorithm: 'a*',
   ollamaUrl: 'http://192.168.1.100:11434', // Your server IP
-  ollamaModel: 'mistral',
+  ollamaModel: 'nomic-embed-text',
 })
 ```
 
-### Using a Different Model
+### Using a Different Embedding Model
 
-Ollama supports many models. You can use any installed model:
+Ollama supports other embedding models. You can use any installed embedding model:
 
 ```typescript
-// Using neural-chat (smaller, faster)
+// Using embeddinggemma (alternative embedding model)
 const result = await findPathBetweenArticles('A', 'B', {
   algorithm: 'a*',
-  ollamaModel: 'neural-chat',
+  ollamaModel: 'embeddinggemma',
 })
 ```
 
-**Available models on your system**:
+**Available embedding models on your system**:
 ```
-mistral:latest        - Recommended, balanced (7.2B)
-qwen3:4b              - Smaller, faster (4.0B)
-embeddinggemma:latest - Embeddings only, not for this task
+nomic-embed-text:latest  - Recommended, high quality (0.3B)
+embeddinggemma:latest    - Alternative, high quality (0.3B)
 ```
 
-### Model Selection Guide
+### Embedding Model Selection Guide
 
 | Model | Size | Speed | Quality | Recommendation |
 |-------|------|-------|---------|---|
-| mistral:latest | 4.4GB | Medium | Excellent | ✅ Default |
-| qwen3:4b | 2.5GB | Fast | Good | Use if mistral is slow |
-| neural-chat | 4.7GB | Medium | Good | Alternative option |
-| dolphin-mixtral | 26GB | Slow | Excellent | Only if you have resources |
+| nomic-embed-text | 0.3GB | Ultra-fast | Excellent | ✅ Default |
+| embeddinggemma | 0.6GB | Fast | Excellent | Alternative option |
 
 ## Testing Connection in Code
 
@@ -278,21 +275,13 @@ const ollama = new OllamaClient('http://localhost:3000/api/ollama/proxy')
 
 ## Performance Optimization
 
-### Faster Scoring
+### Faster Similarity Scoring
 
-1. **Use lighter model**:
-```bash
-ollama pull mistral:4b  # Smaller variant if available
-```
+Embedding-based similarity is already ultra-fast! Here are optimization tips if you want even better performance:
 
-2. **Reduce extract length** in OllamaClient prompt (line ~90):
-```typescript
-// Change from 200 chars to 100
-.map((c) => `- **${c.title}**: ${c.extract.substring(0, 100)}...`)
-```
-
-3. **Lower temperature** (already at 0.3, lowest safe value)
-
+1. **Use parallel embeddings** (default): Already batches all candidates together
+2. **Embedding cache** (default): Session-scoped to prevent redundant computations
+3. **Local cosine similarity** (default): No additional API calls needed
 4. **Increase timeout** if you're getting timeouts:
 ```typescript
 // In OllamaClient.batchScoreSimilarity()
@@ -339,13 +328,12 @@ powermetrics --samplers gpu_power -n 1
 ### Test Specific Model Performance
 
 ```bash
-# Measure response time for mistral
-time curl -X POST http://localhost:11434/api/generate \
+# Measure response time for nomic-embed-text
+time curl -X POST http://localhost:11434/api/embed \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mistral",
-    "prompt": "What is physics?",
-    "stream": false
+    "model": "nomic-embed-text",
+    "input": "physics"
   }'
 ```
 

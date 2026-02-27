@@ -19,7 +19,7 @@ export interface OllamaDebugInfo {
  */
 export async function diagnoseOllama(
   ollamaUrl: string = 'http://localhost:11434',
-  desiredModel: string = 'mistral'
+  desiredModel: string = 'nomic-embed-text'
 ): Promise<OllamaDebugInfo> {
   const info: OllamaDebugInfo = {
     isRunning: false,
@@ -152,7 +152,7 @@ export async function logOllamaDiagnosis(
  */
 export async function testOllamaAPI(
   ollamaUrl: string = 'http://localhost:11434',
-  model: string = 'mistral'
+  model: string = 'nomic-embed-text'
 ): Promise<{ success: boolean; responseTime: number; error?: string }> {
   const startTime = Date.now()
 
