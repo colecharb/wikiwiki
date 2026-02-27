@@ -1,12 +1,19 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import ArticlePreview from './ArticlePreview'
 import type { PathNode, ArticleInfo } from '@/app/lib/pathfinding'
+import type { Article } from '@/app/lib/wikipedia'
+import { getArticle } from '@/app/lib/wikipedia'
 
 interface PathVisualizationProps {
   path: string[]
   nodes: Map<string, PathNode>
   nodeInfo?: Map<string, ArticleInfo>
+}
+
+interface ArticleCache {
+  [title: string]: Article | null
 }
 
 export default function PathVisualization({
@@ -15,6 +22,47 @@ export default function PathVisualization({
   nodeInfo,
 }: PathVisualizationProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [articles, setArticles] = useState<ArticleCache>({})
+  const [loadingArticles, setLoadingArticles] = useState<Set<string>>(new Set())
+
+  // Fetch article details for all path articles
+  useEffect(() => {
+    const fetchArticles = async () => {
+      const toFetch = path.filter(title => !articles[title] && !loadingArticles.has(title))
+      
+      if (toFetch.length === 0) return
+
+      // Mark as loading
+      setLoadingArticles(prev => new Set([...prev, ...toFetch]))
+
+      // Fetch all articles in parallel
+      const results = await Promise.all(
+        toFetch.map(async (title) => {
+          try {
+            const article = await getArticle(title)
+            return { title, article }
+          } catch (error) {
+            console.error(`Failed to fetch article ${title}:`, error)
+            return { title, article: null }
+          }
+        })
+      )
+
+      // Update cache
+      setArticles(prev => {
+        const updated = { ...prev }
+        results.forEach(({ title, article }) => {
+          updated[title] = article
+        })
+        return updated
+      })
+
+      // Mark as done loading
+      setLoadingArticles(new Set())
+    }
+
+    fetchArticles()
+  }, [path])
 
   // Auto-scroll to the end on mount
   useEffect(() => {
@@ -38,6 +86,10 @@ export default function PathVisualization({
     return nodeInfo.get(title) || null
   }
 
+  const getArticle_Cached = (title: string): Article | null => {
+    return articles[title] || null
+  }
+
   return (
     <div className="w-full space-y-4">
       {/* Title */}
@@ -54,43 +106,33 @@ export default function PathVisualization({
           {path.map((title, index) => {
             const isStart = index === 0
             const isEnd = index === path.length - 1
-            const info = getArticleInfo(title)
-            const node = nodes.get(title)
+            const article = getArticle_Cached(title)
+            const isLoading = loadingArticles.has(title)
 
             return (
               <div key={`${title}-${index}`} className="flex flex-col items-center gap-3">
-                {/* Article Card */}
-                <div
-                  className={`w-full p-4 border-2 rounded-lg transition-all ${
-                    isStart
-                      ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-950'
-                      : isEnd
-                        ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950'
-                        : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-zinc-900 hover:border-gray-400 dark:hover:border-gray-600'
-                  }`}
-                >
-                  {/* Title - clickable link */}
-                  <a
-                    href={info?.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block font-bold text-lg text-blue-700 dark:text-blue-300 hover:underline mb-2 break-words line-clamp-2"
-                    title={title}
-                  >
-                    {title}
-                  </a>
-
-                  {/* Excerpt */}
-                  {info?.excerpt && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-3">
-                      {info.excerpt}
-                    </p>
-                  )}
-
-                  {/* Link count badge */}
-                  {info?.linkCount !== undefined && (
-                    <div className="inline-block px-2 py-1 bg-gray-100 dark:bg-zinc-800 text-xs font-medium text-gray-700 dark:text-gray-300 rounded">
-                      {info.linkCount} links
+                {/* Article Card with colored border for start/end */}
+                <div className={isStart ? 'w-full border-l-4 border-l-green-400 dark:border-l-green-600 pl-0' : isEnd ? 'w-full border-l-4 border-l-blue-400 dark:border-l-blue-600 pl-0' : 'w-full'}>
+                  {article ? (
+                    <ArticlePreview
+                      article={article}
+                      variant="compact"
+                      showClearButton={false}
+                    />
+                  ) : isLoading ? (
+                    <div className="w-full p-4 border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-zinc-900 rounded-lg">
+                      <div className="animate-pulse space-y-3">
+                        <div className="h-5 bg-gray-200 dark:bg-zinc-700 rounded w-3/4" />
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-100 dark:bg-zinc-800 rounded" />
+                          <div className="h-4 bg-gray-100 dark:bg-zinc-800 rounded w-5/6" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full p-4 border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-zinc-900 rounded-lg text-gray-500 dark:text-gray-400">
+                      <p className="font-bold">{title}</p>
+                      <p className="text-sm mt-2">Unable to load article details</p>
                     </div>
                   )}
                 </div>
