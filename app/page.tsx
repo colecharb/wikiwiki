@@ -15,7 +15,7 @@ export default function Home() {
           Wikipedia Path Finder
         </h1>
         <p className="text-lg text-gray-600 dark:text-gray-400 mx-auto max-w-2xl">
-          Find the shortest path between any two Wikipedia articles by following the links that connect them.
+          Discover connections between Wikipedia articles using BFS, Dijkstra, or semantic A* pathfinding.
         </p>
       </div>
 

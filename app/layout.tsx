@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Wikipedia Path Finder",
-  description: "Find the shortest path between any two Wikipedia articles by following the links that connect them.",
+  description: "Discover connections between Wikipedia articles using BFS, Dijkstra, or semantic A* pathfinding algorithms.",
 };
 
 export default function RootLayout({
