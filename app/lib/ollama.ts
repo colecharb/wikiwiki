@@ -312,11 +312,12 @@ export class OllamaClient {
          
          console.log(`[OllamaClient] Processing batch ${batchNum}/${totalBatches} (${batch.length} articles)`)
          
-         // Get embeddings for this batch in parallel
-         // Each individual embedding gets 30 second timeout (reasonable per request)
-         const batchEmbeddings = await Promise.all(
-           batch.map((candidate) =>
-             this.getEmbedding(candidate.extract || candidate.title, 30000).catch(
+          // Get embeddings for this batch in parallel
+          // Each individual embedding gets 30 second timeout (reasonable per request)
+          // Only use title for embedding, ignore extract
+          const batchEmbeddings = await Promise.all(
+            batch.map((candidate) =>
+              this.getEmbedding(candidate.title, 30000).catch(
                (error) => {
                  console.warn(
                    `[OllamaClient] Failed to get embedding for "${candidate.title}": ${
