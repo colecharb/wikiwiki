@@ -57,13 +57,13 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Form - sticky on desktop */}
-      <div className="lg:sticky lg:top-4 h-fit">
+    <div className="w-full space-y-8">
+      {/* Form - full width */}
+      <div className="max-w-2xl">
         <PathFinderForm onFindPath={handleFindPath} isSearching={isSearching} />
       </div>
 
-      {/* Results area */}
+      {/* Results area - full width below form */}
       <div className="space-y-6">
         {isSearching && (
           <div className="p-6 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
