@@ -29,6 +29,7 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     return 'http://localhost:11434'
   })
   const [showOllamaConfig, setShowOllamaConfig] = useState(false)
+  const [ollamaError, setOllamaError] = useState<string>('')
 
   // Use prop if provided, otherwise use local state
   const searching = isSearchingProp || isSearching
@@ -42,26 +43,37 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
 
   const fetchOllamaModels = async () => {
     setLoadingModels(true)
+    setOllamaError('')
     try {
       // Save URL to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('ollamaUrl', ollamaUrl)
       }
       
-      const response = await fetch(`${ollamaUrl}/api/tags`)
+      const response = await fetch(`${ollamaUrl}/api/tags`, {
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch models')
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
+      
       const data = (await response.json()) as { models?: Array<{ name: string }> }
       const models = data.models?.map((m) => m.name) || []
       setOllamaModels(models)
+      setOllamaError('')
       
       // If current selected model is not in the list, select the first one
       if (models.length > 0 && !models.includes(selectedModel)) {
         setSelectedModel(models[0])
       }
     } catch (error) {
-      console.error('Failed to fetch Ollama models:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error('Failed to fetch Ollama models:', errorMessage)
+      setOllamaError(errorMessage)
       setOllamaModels([])
     } finally {
       setLoadingModels(false)
@@ -177,9 +189,25 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
                 ))
               )}
             </select>
-            {ollamaModels.length === 0 && !loadingModels && (
-              <p className="text-xs text-red-600 dark:text-red-400">
-                No embedding models found. Try running: <code className="bg-red-50 dark:bg-red-950 px-2 py-1 rounded text-red-800 dark:text-red-300">ollama pull snowflake-arctic-embed:xs</code>
+            {ollamaError && (
+              <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded">
+                <p className="text-xs text-red-700 dark:text-red-300 font-semibold mb-1">Connection Error:</p>
+                <p className="text-xs text-red-600 dark:text-red-400 font-mono break-words">{ollamaError}</p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                  <strong>Tips:</strong>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li>Ensure Ollama is running: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">ollama serve</code></li>
+                    <li>Check your URL is correct and reachable</li>
+                    <li>For HTTPS URLs, ensure you have a valid certificate</li>
+                    <li>Browser CORS policy may block the request - check browser console</li>
+                  </ul>
+                </p>
+              </div>
+            )}
+            
+            {ollamaModels.length === 0 && !loadingModels && !ollamaError && (
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                No embedding models found. Try running: <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-800 dark:text-gray-300">ollama pull snowflake-arctic-embed:xs</code>
               </p>
             )}
           </div>
