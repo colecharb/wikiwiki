@@ -312,10 +312,16 @@ export class AStarPathfinder extends BasePathfinder {
         // Batch score all neighbors using just their titles
         try {
           // Log BEFORE scoring
+          if (typeof window !== 'undefined') {
+            console.debug(
+              `[A*] gScore.size before scoring: ${gScore.size}, all entries: ${Array.from(gScore.entries()).map(([k,v]) => `${k}:${v}`).join(', ')}`
+            )
+          }
+          
           const preScoringG = gScore.get(currentTitle) || Infinity
           if (typeof window !== 'undefined') {
             console.debug(
-              `[A*] BEFORE scoring - currentTitle="${currentTitle}", gScore=${preScoringG}`
+              `[A*] BEFORE scoring - currentTitle="${currentTitle}", gScore.get(currentTitle)=${gScore.get(currentTitle)}, preScoringG=${preScoringG}`
             )
             console.debug(
               `[A*] Scoring ${unvisitedNeighbors.length} neighbors for target "${endTitle}"`
