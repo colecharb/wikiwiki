@@ -21,7 +21,7 @@ export default function PathVisualization({
     if (containerRef.current) {
       const scrollDelay = setTimeout(() => {
         containerRef.current?.scrollTo({
-          left: containerRef.current.scrollWidth,
+          top: containerRef.current.scrollHeight,
           behavior: 'smooth',
         })
       }, 100)
@@ -45,12 +45,12 @@ export default function PathVisualization({
         Path ({path.length} articles)
       </div>
 
-      {/* Scrollable path container */}
+      {/* Scrollable path container - vertical */}
       <div
         ref={containerRef}
-        className="overflow-x-auto pb-4 scroll-smooth"
+        className="overflow-y-auto max-h-96 pb-4 scroll-smooth border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-gray-50 dark:bg-zinc-900"
       >
-        <div className="flex gap-3 min-w-min px-2">
+        <div className="flex flex-col gap-3">
           {path.map((title, index) => {
             const isStart = index === 0
             const isEnd = index === path.length - 1
@@ -58,10 +58,10 @@ export default function PathVisualization({
             const node = nodes.get(title)
 
             return (
-              <div key={`${title}-${index}`} className="flex items-center gap-3">
+              <div key={`${title}-${index}`} className="flex flex-col items-center gap-3">
                 {/* Article Card */}
                 <div
-                  className={`flex-shrink-0 w-80 p-4 border-2 rounded-lg transition-all ${
+                  className={`w-full p-4 border-2 rounded-lg transition-all ${
                     isStart
                       ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-950'
                       : isEnd
@@ -102,8 +102,8 @@ export default function PathVisualization({
 
                 {/* Arrow between articles (except after last) */}
                 {!isEnd && (
-                  <div className="flex-shrink-0 text-gray-400 dark:text-gray-600 text-2xl">
-                    →
+                  <div className="text-gray-400 dark:text-gray-600 text-2xl">
+                    ↓
                   </div>
                 )}
               </div>
@@ -112,9 +112,9 @@ export default function PathVisualization({
         </div>
       </div>
 
-      {/* Mobile hint */}
+      {/* Scroll hint */}
       <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-        ← Scroll to see the full path →
+        ↓ Scroll to see the full path ↓
       </div>
     </div>
   )
