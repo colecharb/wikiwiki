@@ -69,11 +69,6 @@ export default function PathVisualization({
                         : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-zinc-900 hover:border-gray-400 dark:hover:border-gray-600'
                   }`}
                 >
-                  {/* Hop number */}
-                  <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
-                    Hop {index + 1} of {path.length}
-                  </div>
-
                   {/* Title - clickable link */}
                   <a
                     href={info?.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`}
@@ -100,10 +95,15 @@ export default function PathVisualization({
                   )}
                 </div>
 
-                {/* Arrow between articles (except after last) */}
+                {/* Arrow with hop number (except after last) */}
                 {!isEnd && (
-                  <div className="text-gray-400 dark:text-gray-600 text-2xl">
-                    ↓
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      Hop {index + 1}
+                    </div>
+                    <div className="text-gray-400 dark:text-gray-600 text-2xl">
+                      ↓
+                    </div>
                   </div>
                 )}
               </div>
