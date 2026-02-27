@@ -48,7 +48,7 @@ export abstract class BasePathfinder implements PathfindingAlgorithm {
     startTitle: string,
     endTitle: string,
     errorType: string,
-    algorithm: 'bfs' | 'dijkstra',
+    algorithm: 'bfs' | 'dijkstra' | 'a*',
     duration: number,
     message?: string
   ): PathResult {
@@ -60,6 +60,9 @@ export abstract class BasePathfinder implements PathfindingAlgorithm {
       'invalid_end': 'Target article not found on Wikipedia.',
       'both_invalid': 'Both articles not found on Wikipedia.',
       'same_article': 'Start and target articles are the same!',
+      'ollama_unavailable':
+        'A* algorithm requires Ollama. Make sure Ollama is running at http://localhost:11434 or provide a custom ollamaUrl.',
+      'ollama_timeout': 'Ollama similarity scoring timed out. Try again or use BFS/Dijkstra.',
     }
 
     return {

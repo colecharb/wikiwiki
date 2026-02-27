@@ -17,6 +17,8 @@ export type PathNode = {
   distance: number // Hops from start (BFS) or weighted distance (Dijkstra)
   parent?: string // Previous node title (for path reconstruction)
   linksCount?: number // Number of links in this article
+  similarityScore?: number // Semantic similarity to target (0-100) from Ollama
+  heuristicValue?: number // A* heuristic estimate (0-1) to target
 }
 
 /**
@@ -39,7 +41,7 @@ export type PathResult = {
   startTitle: string
   endTitle: string
   duration: number // Time taken in ms
-  algorithm: 'bfs' | 'dijkstra'
+  algorithm: 'bfs' | 'dijkstra' | 'a*'
   error?: string // Error message if found=false
   errorType?: PathfindingErrorType // Specific error type
   nodeInfo?: Map<string, ArticleInfo> // Article info for UI display
@@ -56,6 +58,8 @@ export type PathfindingErrorType =
   | 'invalid_end' // End article doesn't exist
   | 'both_invalid' // Both articles don't exist
   | 'same_article' // Start === End
+  | 'ollama_unavailable' // Ollama connection failed or unavailable
+  | 'ollama_timeout' // Ollama similarity scoring timed out
 
 /**
  * Options for pathfinding configuration
@@ -63,9 +67,11 @@ export type PathfindingErrorType =
 export type PathfindingOptions = {
   maxDepth?: number // Max hops allowed (unlimited if not set)
   timeout?: number // Timeout in ms (default: 60000)
-  algorithm?: 'bfs' | 'dijkstra' // Which algorithm to use (default: 'bfs')
+  algorithm?: 'bfs' | 'dijkstra' | 'a*' // Which algorithm to use (default: 'bfs')
   useCache?: boolean // Use cached links (default: true)
   includeDisambiguation?: boolean // Include disambiguation pages (default: false)
+  ollamaUrl?: string // Ollama server URL (default: 'http://localhost:11434') - required for A*
+  ollamaModel?: string // Ollama model name (default: 'mistral') - required for A*
 }
 
 /**

@@ -233,6 +233,14 @@ export class CachedCrawler implements ArticleCrawler {
     return results
   }
 
+  /**
+   * Get article extract - delegate to underlying crawler
+   * This is used by A* for semantic similarity scoring
+   */
+  async getExtract(title: string): Promise<string> {
+    return (this.crawler as any).getExtract(title)
+  }
+
   clearCache(): void {
     this.cache.clear()
   }

@@ -5,7 +5,7 @@ interface PathStatsProps {
   startTitle: string
   endTitle: string
   duration: number
-  algorithm: 'bfs' | 'dijkstra'
+  algorithm: 'bfs' | 'dijkstra' | 'a*'
 }
 
 export default function PathStats({
@@ -22,7 +22,8 @@ export default function PathStats({
     return `${(ms / 1000).toFixed(2)}s`
   }
 
-  const algorithmLabel = algorithm === 'bfs' ? 'BFS' : "Dijkstra's"
+  const algorithmLabel =
+    algorithm === 'bfs' ? 'BFS' : algorithm === 'dijkstra' ? "Dijkstra's" : 'A* (Ollama)'
 
   return (
     <div className="w-full p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border border-blue-200 dark:border-blue-800 rounded-lg">
