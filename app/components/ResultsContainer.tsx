@@ -58,8 +58,8 @@ export default function ResultsContainer({ onPathFound }: ResultsContainerProps)
 
   return (
     <div className="w-full space-y-8">
-      {/* Form - full width */}
-      <div className="max-w-2xl">
+      {/* Form - centered */}
+      <div className="mx-auto max-w-2xl w-full">
         <PathFinderForm onFindPath={handleFindPath} isSearching={isSearching} />
       </div>
 
