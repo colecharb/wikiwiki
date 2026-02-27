@@ -90,8 +90,7 @@ export class OllamaClient {
           `Available models: ${availableModels}\n` +
           `To download: ollama pull ${this.embeddingModel}`
 
-        console.warn(`[OllamaClient] ${errorMsg}`)
-        throw new OllamaConnectionError(errorMsg)
+         throw new OllamaConnectionError(errorMsg)
       }
 
        this.isHealthy = true
@@ -133,11 +132,8 @@ export class OllamaClient {
     // Check cache first
     const cached = this.embeddingCache.get(text)
     if (cached) {
-      console.log(`[OllamaClient] CACHE HIT for "${text}"`)
       return cached
     }
-    
-    console.log(`[OllamaClient] Cache miss for "${text}", cache size: ${this.embeddingCache.size}`)
 
     try {
       // Ollama embed API expects input as array or string
@@ -148,7 +144,6 @@ export class OllamaClient {
       }
       
       const requestBodyJson = JSON.stringify(requestBody)
-      console.log(`[OllamaClient] Input text length: ${text.length} chars`)
       
       const response = await fetch(`${this.ollamaUrl}/api/embeddings`, {
         method: 'POST',
@@ -166,21 +161,13 @@ export class OllamaClient {
       }
 
        const data = (await response.json()) as any
-        
-        // Debug: Log first part of raw response
-        console.log(`[OllamaClient] Raw response keys: ${Object.keys(data).join(', ')}`)
-        if (data.embedding) {
-          console.log(`[OllamaClient] embedding array length: ${data.embedding.length}`)
-          console.log(`[OllamaClient] First 5 values: [${data.embedding.slice(0, 5).map((v: number) => v.toFixed(6)).join(', ')}...]`)
-        }
 
-        // Ollama /api/embeddings endpoint returns { embedding: [...] }
-        let embedding: number[] | null = null
-        
-        if (data.embedding && Array.isArray(data.embedding)) {
-          // Format: { embedding: [...] }
-          embedding = data.embedding
-          console.log(`[OllamaClient] ✓ Using embedding array (${data.embedding.length} dims)`)
+         // Ollama /api/embeddings endpoint returns { embedding: [...] }
+         let embedding: number[] | null = null
+         
+         if (data.embedding && Array.isArray(data.embedding)) {
+           // Format: { embedding: [...] }
+           embedding = data.embedding
         } else {
           throw new OllamaResponseError('Ollama response missing "embedding" field')
         }
@@ -193,19 +180,17 @@ export class OllamaClient {
           throw new OllamaResponseError(`Ollama returned empty embedding for "${text}"`)
         }
         
-         // Validate all values in embedding are finite numbers
-         if (embedding.some((v: number) => !isFinite(v))) {
-           throw new OllamaResponseError(`Ollama returned invalid embedding with NaN/Infinity values for "${text}"`)
-         }
-         
-          console.log(`  Got embedding for "${text}": [${embedding.slice(0, 5).map((v: number) => v.toFixed(4)).join(', ')}...]`)
-          
-          // Create a defensive copy to avoid mutations
-          const embeddingCopy = Array.from(embedding)
-          
-          // Cache the embedding
-          this.embeddingCache.set(text, embeddingCopy)
-          return embeddingCopy
+          // Validate all values in embedding are finite numbers
+          if (embedding.some((v: number) => !isFinite(v))) {
+            throw new OllamaResponseError(`Ollama returned invalid embedding with NaN/Infinity values for "${text}"`)
+          }
+           
+           // Create a defensive copy to avoid mutations
+           const embeddingCopy = Array.from(embedding)
+           
+           // Cache the embedding
+           this.embeddingCache.set(text, embeddingCopy)
+           return embeddingCopy
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new OllamaTimeoutError(
@@ -251,10 +236,6 @@ export class OllamaClient {
 
     // Validate vectors don't contain NaN or Infinity
     if (a.some((v: number) => !isFinite(v)) || b.some((v: number) => !isFinite(v))) {
-      console.error(`[OllamaClient] Invalid embedding vectors detected:`, {
-        aHasNaN: a.some((v: number) => !isFinite(v)),
-        bHasNaN: b.some((v: number) => !isFinite(v)),
-      })
       return 0
     }
 
@@ -279,7 +260,6 @@ export class OllamaClient {
     
     // Handle NaN result (shouldn't happen with above validation, but safety check)
     if (!isFinite(similarity)) {
-      console.error(`[OllamaClient] Cosine similarity calculation resulted in NaN`)
       return 0
     }
 
@@ -300,12 +280,6 @@ export class OllamaClient {
     targetTitle: string,
     timeout: number = 30000
   ): Promise<Map<string, number>> {
-    console.log(`=== START batchScoreSimilarity ===`)
-    console.log(`Target: "${targetTitle}", Candidates count: ${candidates.length}`)
-    if (candidates.length > 0) {
-      console.log(`First 5 candidates:`, candidates.slice(0, 5).map(c => c.title))
-    }
-    
     if (candidates.length === 0) {
       return new Map()
     }
@@ -314,16 +288,9 @@ export class OllamaClient {
       // Get target embedding once (30 second individual timeout)
       let targetEmbedding: number[] | null = null
       try {
-        console.log(`[OllamaClient] Getting embedding for target: "${targetTitle}"`)
         targetEmbedding = await this.getEmbedding(targetTitle, 30000)
-        console.log(`[OllamaClient] Target embedding obtained, length: ${targetEmbedding?.length}`)
       } catch (error) {
-        // If target embedding fails, log warning but continue with neutral scores
-        console.warn(
-          `[OllamaClient] Failed to get target embedding for "${targetTitle}": ${
-            error instanceof Error ? error.message : String(error)
-          }. Using neutral scores for all candidates.`
-        )
+        // If target embedding fails, continue with neutral scores
       }
 
       // Process candidates in smaller batches (max 5 at a time) to avoid overloading Ollama
@@ -331,87 +298,40 @@ export class OllamaClient {
       const embeddings: (number[] | null)[] = []
       
        for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-         const batch = candidates.slice(i, i + BATCH_SIZE)
-         const batchNum = Math.floor(i / BATCH_SIZE) + 1
-         const totalBatches = Math.ceil(candidates.length / BATCH_SIZE)
-         
-         console.log(`[OllamaClient] Processing batch ${batchNum}/${totalBatches} (${batch.length} articles)`)
-         
-          // Get embeddings for this batch in parallel
-          // Each individual embedding gets 30 second timeout (reasonable per request)
-          // Only use title for embedding, ignore extract
-          const batchEmbeddings = await Promise.all(
-            batch.map((candidate) =>
-              this.getEmbedding(candidate.title, 30000).catch(
-               (error) => {
-                 console.warn(
-                   `[OllamaClient] Failed to get embedding for "${candidate.title}": ${
-                     error instanceof Error ? error.message : String(error)
-                   }`
-                 )
-                 return null
-               }
-             )
-           )
-         )
-         
-         embeddings.push(...batchEmbeddings)
-         
-         const successCount = batchEmbeddings.filter((e) => e !== null).length
-         console.log(`[OllamaClient] Batch ${batchNum}/${totalBatches} complete. Success rate: ${successCount}/${batch.length}`)
-      }
-
-       // Calculate cosine similarity for each candidate
-       const result = new Map<string, number>()
-       
-       // Debug: Calculate and show target embedding norm
-       let targetNorm = 0
-       if (targetEmbedding) {
-         for (let i = 0; i < targetEmbedding.length; i++) {
-           targetNorm += targetEmbedding[i] * targetEmbedding[i]
-         }
-         targetNorm = Math.sqrt(targetNorm)
-         console.log(`[OllamaClient] Target embedding norm: ${targetNorm.toFixed(6)}`)
-         console.log(`[OllamaClient] Target embedding sample: [${targetEmbedding.slice(0, 5).map(v => v.toFixed(6)).join(', ')}...]`)
-       }
-       
-       for (let i = 0; i < candidates.length; i++) {
-         const candidateEmbedding = embeddings[i]
-
-         // If either embedding is missing, use neutral score
-         if (!targetEmbedding || !candidateEmbedding) {
-           result.set(candidates[i].title, 50)
-           continue
-         }
-
-         // Debug: Show candidate embedding norm
-         let candidateNorm = 0
-         for (let j = 0; j < candidateEmbedding.length; j++) {
-           candidateNorm += candidateEmbedding[j] * candidateEmbedding[j]
-         }
-         candidateNorm = Math.sqrt(candidateNorm)
-
-          // Cosine similarity is -1 to 1, convert to 0-100 scale
-          const cosineSim = this.cosineSimilarity(targetEmbedding, candidateEmbedding)
+          const batch = candidates.slice(i, i + BATCH_SIZE)
           
-          // DEBUG: Show calculation details
-          let dotProduct = 0
-          for (let j = 0; j < targetEmbedding.length; j++) {
-            dotProduct += targetEmbedding[j] * candidateEmbedding[j]
+           // Get embeddings for this batch in parallel
+           // Each individual embedding gets 30 second timeout (reasonable per request)
+           // Only use title for embedding, ignore extract
+           const batchEmbeddings = await Promise.all(
+             batch.map((candidate) =>
+               this.getEmbedding(candidate.title, 30000).catch(
+                () => null
+              )
+            )
+          )
+          
+          embeddings.push(...batchEmbeddings)
+       }
+
+        // Calculate cosine similarity for each candidate
+        const result = new Map<string, number>()
+        
+        for (let i = 0; i < candidates.length; i++) {
+          const candidateEmbedding = embeddings[i]
+
+          // If either embedding is missing, use neutral score
+          if (!targetEmbedding || !candidateEmbedding) {
+            result.set(candidates[i].title, 50)
+            continue
           }
-          
-          const score = Math.round(((cosineSim + 1) / 2) * 100) // Map [-1, 1] to [0, 100]
-          
-          // Debug: Show embedding samples to detect if they're all the same
-          const targetSample = targetEmbedding.slice(0, 3).map(v => v.toFixed(6)).join(', ')
-          const candidateSample = candidateEmbedding.slice(0, 3).map(v => v.toFixed(6)).join(', ')
-          console.log(`  "${candidates[i].title}": norm=${candidateNorm.toFixed(6)}, cosine=${cosineSim.toFixed(4)}, score=${score}`)
-          console.log(`    dot=${dotProduct.toFixed(4)}, norm1=${targetNorm.toFixed(4)}, norm2=${candidateNorm.toFixed(4)}, calc=${(dotProduct/(targetNorm*candidateNorm)).toFixed(4)}`)
-          console.log(`    Target: [${targetSample}...]`)
-          console.log(`    Candidate: [${candidateSample}...]`)
 
-          result.set(candidates[i].title, score)
-       }
+           // Cosine similarity is -1 to 1, convert to 0-100 scale
+           const cosineSim = this.cosineSimilarity(targetEmbedding, candidateEmbedding)
+           const score = Math.round(((cosineSim + 1) / 2) * 100) // Map [-1, 1] to [0, 100]
+
+           result.set(candidates[i].title, score)
+        }
 
       return result
     } catch (error) {

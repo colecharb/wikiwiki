@@ -37,12 +37,10 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     setLoadingModels(true)
     setOllamaError('')
     try {
-      // Use backend proxy to bypass CORS restrictions
-      const response = await fetch('/api/ollama/tags')
+      const response = await fetch('http://localhost:11434/api/tags')
       
       if (!response.ok) {
-        const errorData = (await response.json()) as { error?: string }
-        throw new Error(errorData.error || `HTTP ${response.status}`)
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data = (await response.json()) as { models?: Array<{ name: string }> }
