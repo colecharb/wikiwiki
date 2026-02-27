@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import ArticlePreview from './ArticlePreview'
 import type { PathNode, ArticleInfo } from '@/app/lib/pathfinding'
 import type { Article } from '@/app/lib/wikipedia'
@@ -21,7 +21,6 @@ export default function PathVisualization({
   nodes,
   nodeInfo,
 }: PathVisualizationProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
   const [articles, setArticles] = useState<ArticleCache>({})
   const [loadingArticles, setLoadingArticles] = useState<Set<string>>(new Set())
 
@@ -64,18 +63,7 @@ export default function PathVisualization({
     fetchArticles()
   }, [path])
 
-  // Auto-scroll to the end on mount
-  useEffect(() => {
-    if (containerRef.current) {
-      const scrollDelay = setTimeout(() => {
-        containerRef.current?.scrollTo({
-          top: containerRef.current.scrollHeight,
-          behavior: 'smooth',
-        })
-      }, 100)
-      return () => clearTimeout(scrollDelay)
-    }
-  }, [path])
+
 
   if (path.length === 0) {
     return null
@@ -97,11 +85,8 @@ export default function PathVisualization({
         Path ({path.length} articles)
       </div>
 
-      {/* Scrollable path container - vertical on desktop, full height on mobile */}
-      <div
-        ref={containerRef}
-        className="overflow-y-auto md:max-h-96 pb-4 scroll-smooth border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-gray-50 dark:bg-zinc-900"
-      >
+      {/* Path container - no internal scrolling, scrolls with page */}
+      <div className="pb-4 border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-gray-50 dark:bg-zinc-900 max-w-2xl mx-auto">
         <div className="flex flex-col gap-3">
           {path.map((title, index) => {
             const isStart = index === 0
@@ -154,10 +139,7 @@ export default function PathVisualization({
         </div>
       </div>
 
-      {/* Scroll hint */}
-      <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-        ↓ Scroll to see the full path ↓
-      </div>
+
     </div>
   )
 }
