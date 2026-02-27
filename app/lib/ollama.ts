@@ -289,8 +289,10 @@ export class OllamaClient {
       // Get target embedding once (30 second individual timeout)
       let targetEmbedding: number[] | null = null
       try {
-        // Use extract for context if available, fallback to title
-        const targetText = targetExtract || targetTitle
+        // Combine title and extract for better semantic understanding
+        const targetText = targetExtract && targetExtract !== targetTitle
+          ? `${targetTitle}\n${targetExtract}`
+          : targetTitle
         targetEmbedding = await this.getEmbedding(targetText, 30000)
       } catch (error) {
         // If target embedding fails, continue with neutral scores
@@ -300,18 +302,22 @@ export class OllamaClient {
       const BATCH_SIZE = 5
       const embeddings: (number[] | null)[] = []
       
-       for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+        for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
           const batch = candidates.slice(i, i + BATCH_SIZE)
           
            // Get embeddings for this batch in parallel
            // Each individual embedding gets 30 second timeout (reasonable per request)
-           // Use extract for context if available, fallback to title
+           // Combine title and extract for richer context
            const batchEmbeddings = await Promise.all(
-             batch.map((candidate) =>
-               this.getEmbedding(candidate.extract, 30000).catch(
+             batch.map((candidate) => {
+               // Combine title and extract for better semantic understanding
+               const fullText = candidate.title === candidate.extract 
+                 ? candidate.title 
+                 : `${candidate.title}\n${candidate.extract}`
+               return this.getEmbedding(fullText, 30000).catch(
                 () => null
               )
-            )
+            })
           )
           
           embeddings.push(...batchEmbeddings)
