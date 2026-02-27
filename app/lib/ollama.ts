@@ -135,6 +135,7 @@ export class OllamaClient {
     // Check cache first
     const cached = this.embeddingCache.get(text)
     if (cached) {
+      console.log(`[OllamaClient] CACHE HIT for "${text}"`)
       return cached
     }
 
@@ -144,12 +145,16 @@ export class OllamaClient {
         input: text,
       }
       
+      const requestBodyJson = JSON.stringify(requestBody)
+      console.log(`[OllamaClient] Requesting embedding for: "${text}"`)
+      console.log(`[OllamaClient] Request body: ${requestBodyJson}`)
+      
       const response = await fetch(`${this.ollamaUrl}/api/embed`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: requestBodyJson,
         signal: AbortSignal.timeout(timeout),
       })
 
@@ -159,24 +164,37 @@ export class OllamaClient {
         )
       }
 
-       const data = (await response.json()) as { embeddings?: number[][] }
+       const data = (await response.json()) as any
+       
+       console.log(`[OllamaClient] Raw response for "${text}":`, JSON.stringify(data, null, 2))
 
-       if (!data.embeddings || data.embeddings.length === 0) {
-         throw new OllamaResponseError('No embeddings returned from Ollama')
+       // Handle both response formats: { embedding: [...] } or { embeddings: [[...]] }
+       let embedding: number[] | null = null
+       
+       if (data.embedding && Array.isArray(data.embedding)) {
+         // Format: { embedding: [...] }
+         embedding = data.embedding
+         console.log(`[OllamaClient] Using single embedding format`)
+       } else if (data.embeddings && Array.isArray(data.embeddings) && data.embeddings.length > 0) {
+         // Format: { embeddings: [[...]] }
+         embedding = data.embeddings[0]
+         console.log(`[OllamaClient] Using embeddings array format`)
        }
-
-       const embedding = data.embeddings[0]
+       
+       if (!embedding) {
+         throw new OllamaResponseError('No valid embedding format found in Ollama response')
+       }
         
         if (!embedding || embedding.length === 0) {
           throw new OllamaResponseError(`Ollama returned empty embedding for "${text}"`)
         }
         
-        // Validate all values in embedding are finite numbers
-        if (embedding.some(v => !isFinite(v))) {
-          throw new OllamaResponseError(`Ollama returned invalid embedding with NaN/Infinity values for "${text}"`)
-        }
-        
-        console.log(`  Got embedding for "${text}": [${embedding.slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`)
+         // Validate all values in embedding are finite numbers
+         if (embedding.some((v: number) => !isFinite(v))) {
+           throw new OllamaResponseError(`Ollama returned invalid embedding with NaN/Infinity values for "${text}"`)
+         }
+         
+         console.log(`  Got embedding for "${text}": [${embedding.slice(0, 5).map((v: number) => v.toFixed(4)).join(', ')}...]`)
         
         // Cache the embedding
         this.embeddingCache.set(text, embedding)
@@ -225,10 +243,10 @@ export class OllamaClient {
     }
 
     // Validate vectors don't contain NaN or Infinity
-    if (a.some(v => !isFinite(v)) || b.some(v => !isFinite(v))) {
+    if (a.some((v: number) => !isFinite(v)) || b.some((v: number) => !isFinite(v))) {
       console.error(`[OllamaClient] Invalid embedding vectors detected:`, {
-        aHasNaN: a.some(v => !isFinite(v)),
-        bHasNaN: b.some(v => !isFinite(v)),
+        aHasNaN: a.some((v: number) => !isFinite(v)),
+        bHasNaN: b.some((v: number) => !isFinite(v)),
       })
       return 0
     }
