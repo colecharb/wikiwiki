@@ -135,19 +135,24 @@ export class OllamaClient {
     // Check cache first
     const cached = this.embeddingCache.get(text)
     if (cached) {
-      console.log(`[OllamaClient] CACHE HIT for "${text}"`)
+      console.log(`[OllamaClient] CACHE HIT for "${text}", returning cached embedding [${cached.slice(0, 5).map((v: number) => v.toFixed(4)).join(', ')}...]`)
       return cached
     }
+    
+    console.log(`[OllamaClient] Cache miss for "${text}", cache size: ${this.embeddingCache.size}`)
 
     try {
+      // Ollama embed API expects input as array or string
+      // Using array format for consistency
       const requestBody = {
         model: this.embeddingModel,
-        input: text,
+        input: [text],  // Send as array
       }
       
       const requestBodyJson = JSON.stringify(requestBody)
       console.log(`[OllamaClient] Requesting embedding for: "${text}"`)
-      console.log(`[OllamaClient] Request body: ${requestBodyJson}`)
+      // Don't log full body, just show the text being embedded
+      console.log(`[OllamaClient] Input text length: ${text.length} chars`)
       
       const response = await fetch(`${this.ollamaUrl}/api/embed`, {
         method: 'POST',
@@ -166,7 +171,8 @@ export class OllamaClient {
 
        const data = (await response.json()) as any
        
-       console.log(`[OllamaClient] Raw response for "${text}":`, JSON.stringify(data, null, 2))
+       // DON'T log full response as it's too verbose
+       // console.log(`[OllamaClient] Raw response for "${text}":`, JSON.stringify(data, null, 2))
 
        // Handle both response formats: { embedding: [...] } or { embeddings: [[...]] }
        let embedding: number[] | null = null
@@ -174,11 +180,11 @@ export class OllamaClient {
        if (data.embedding && Array.isArray(data.embedding)) {
          // Format: { embedding: [...] }
          embedding = data.embedding
-         console.log(`[OllamaClient] Using single embedding format`)
+         console.log(`[OllamaClient] Response format: single embedding (${data.embedding.length} dims)`)
        } else if (data.embeddings && Array.isArray(data.embeddings) && data.embeddings.length > 0) {
          // Format: { embeddings: [[...]] }
          embedding = data.embeddings[0]
-         console.log(`[OllamaClient] Using embeddings array format`)
+         console.log(`[OllamaClient] Response format: embeddings array with ${data.embeddings.length} entries`)
        }
        
        if (!embedding) {
@@ -195,10 +201,13 @@ export class OllamaClient {
          }
          
          console.log(`  Got embedding for "${text}": [${embedding.slice(0, 5).map((v: number) => v.toFixed(4)).join(', ')}...]`)
-        
-        // Cache the embedding
-        this.embeddingCache.set(text, embedding)
-        return embedding
+         
+         // Create a defensive copy to avoid mutations
+         const embeddingCopy = Array.from(embedding)
+         
+         // Cache the embedding
+         this.embeddingCache.set(text, embeddingCopy)
+         return embeddingCopy
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new OllamaTimeoutError(
