@@ -362,9 +362,23 @@ export class AStarPathfinder extends BasePathfinder {
 
           // Process each neighbor
           let addedCount = 0
+          const currentG = gScore.get(currentTitle) || Infinity
+          
+          if (typeof window !== 'undefined') {
+            console.debug(
+              `[A*] Current node g-score: ${currentG}, so tentativeG for neighbors will be: ${currentG + 1}`
+            )
+          }
+          
           for (const neighbor of unvisitedNeighbors) {
-            const tentativeG = (gScore.get(currentTitle) || Infinity) + 1
+            const tentativeG = currentG + 1
             const currentBestG = gScore.get(neighbor) || Infinity
+
+            if (typeof window !== 'undefined' && addedCount < 3) {
+              console.debug(
+                `[A*] Neighbor "${neighbor}": tentativeG=${tentativeG} vs currentBestG=${currentBestG}, condition=${tentativeG} < ${currentBestG} = ${tentativeG < currentBestG}`
+              )
+            }
 
             if (tentativeG < currentBestG) {
               // This path is better
