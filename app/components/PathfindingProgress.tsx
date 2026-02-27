@@ -85,24 +85,29 @@ export default function PathfindingProgress({
 
       {/* Progress Details */}
       <div className="space-y-3">
-        {/* Current Article Being Explored */}
-        {lastExploring && (
-          <div className="flex items-start gap-3">
-            <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-0.5 w-20">
-              EXPLORING
-            </div>
-            <div className="flex-1">
-              <p className="font-mono text-sm text-gray-700 dark:text-gray-300">
-                {lastExploring.currentArticle}
-              </p>
-              {lastExploring.visitedCount !== undefined && (
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                  Visited {lastExploring.visitedCount} article{lastExploring.visitedCount !== 1 ? 's' : ''}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+         {/* Current Article Being Explored */}
+         {lastExploring && (
+           <div className="flex items-start gap-3">
+             <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-0.5 w-20">
+               EXPLORING
+             </div>
+             <div className="flex-1">
+               <a
+                 href={`https://en.wikipedia.org/wiki/${encodeURIComponent(lastExploring.currentArticle || '')}`}
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
+               >
+                 {lastExploring.currentArticle}
+               </a>
+               {lastExploring.visitedCount !== undefined && (
+                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                   Visited {lastExploring.visitedCount} article{lastExploring.visitedCount !== 1 ? 's' : ''}
+                 </p>
+               )}
+             </div>
+           </div>
+         )}
 
         {/* Scoring Progress */}
         {lastScoring && (
@@ -163,20 +168,23 @@ export default function PathfindingProgress({
             <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase">
               Explored Articles ({lastExploring.exploredArticlesWithScores.length})
             </div>
-            <div className="flex flex-wrap gap-2">
-              {lastExploring.exploredArticlesWithScores.map((item, index) => (
-                <div
-                  key={`${item.title}-${index}`}
-                  className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md text-xs font-mono text-gray-700 dark:text-gray-300 flex items-center gap-2"
-                >
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">#{index + 1}</span>
-                  <span className="truncate max-w-xs">{item.title}</span>
-                  {item.score > 0 && (
-                    <span className="text-gray-500 dark:text-gray-500 text-xs">({item.score.toFixed(1)})</span>
-                  )}
-                </div>
-              ))}
-            </div>
+             <div className="flex flex-wrap gap-2">
+               {lastExploring.exploredArticlesWithScores.map((item, index) => (
+                 <a
+                   key={`${item.title}-${index}`}
+                   href={`https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`}
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md text-xs font-mono text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:border-blue-400 dark:hover:border-gray-500 transition-colors flex items-center gap-2"
+                 >
+                   <span className="text-blue-600 dark:text-blue-400 font-bold">#{index + 1}</span>
+                   <span className="truncate max-w-xs">{item.title}</span>
+                   {item.score > 0 && (
+                     <span className="text-gray-500 dark:text-gray-500 text-xs">({item.score.toFixed(1)})</span>
+                   )}
+                 </a>
+               ))}
+             </div>
           </div>
         )}
       </div>
