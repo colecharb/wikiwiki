@@ -1,25 +1,59 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import SearchField from './SearchField'
 import ArticlePreview from './ArticlePreview'
 import type { Article } from '@/app/lib/wikipedia'
 
 interface PathFinderFormProps {
-  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean }) => void
+  onFindPath?: (start: Article, end: Article, options: { algorithm: 'bfs' | 'dijkstra' | 'a*', includeDisambiguation: boolean, ollamaModel?: string }) => void
   onArticleChange?: () => void
   isSearching?: boolean
+  onStop?: () => void
 }
 
-export default function PathFinderForm({ onFindPath, onArticleChange, isSearching: isSearchingProp = false }: PathFinderFormProps) {
+export default function PathFinderForm({ onFindPath, onArticleChange, isSearching: isSearchingProp = false, onStop }: PathFinderFormProps) {
   const [startArticle, setStartArticle] = useState<Article | null>(null)
   const [endArticle, setEndArticle] = useState<Article | null>(null)
   const [isSearching, setIsSearching] = useState(false)
-  const [algorithm, setAlgorithm] = useState<'bfs' | 'dijkstra' | 'a*'>('bfs')
+  const [algorithm, setAlgorithm] = useState<'bfs' | 'dijkstra' | 'a*'>('a*')
   const [includeDisambiguation, setIncludeDisambiguation] = useState(false)
+  const [ollamaModels, setOllamaModels] = useState<string[]>([])
+  const [selectedModel, setSelectedModel] = useState<string>('snowflake-arctic-embed:xs')
+  const [loadingModels, setLoadingModels] = useState(false)
 
   // Use prop if provided, otherwise use local state
   const searching = isSearchingProp || isSearching
+
+  // Fetch available Ollama models when component mounts or when algorithm changes to A*
+  useEffect(() => {
+    if (algorithm === 'a*') {
+      fetchOllamaModels()
+    }
+  }, [algorithm])
+
+  const fetchOllamaModels = async () => {
+    setLoadingModels(true)
+    try {
+      const response = await fetch('http://localhost:11434/api/tags')
+      if (!response.ok) {
+        throw new Error('Failed to fetch models')
+      }
+      const data = (await response.json()) as { models?: Array<{ name: string }> }
+      const models = data.models?.map((m) => m.name) || []
+      setOllamaModels(models)
+      
+      // If current selected model is not in the list, select the first one
+      if (models.length > 0 && !models.includes(selectedModel)) {
+        setSelectedModel(models[0])
+      }
+    } catch (error) {
+      console.error('Failed to fetch Ollama models:', error)
+      setOllamaModels([])
+    } finally {
+      setLoadingModels(false)
+    }
+  }
 
   const handleStartArticleChange = (article: Article) => {
     setStartArticle(article)
@@ -35,7 +69,7 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     if (!startArticle || !endArticle) return
 
     if (onFindPath) {
-      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation })
+      onFindPath(startArticle, endArticle, { algorithm, includeDisambiguation, ollamaModel: selectedModel })
     }
   }
 
@@ -67,6 +101,46 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
             </p>
           )}
         </div>
+
+        {/* Ollama Model Dropdown - Only show for A* algorithm */}
+        {algorithm === 'a*' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="ollama-model" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Embedding Model
+              </label>
+              <button
+                onClick={fetchOllamaModels}
+                disabled={loadingModels || searching}
+                className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loadingModels ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+            <select
+              id="ollama-model"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={searching || ollamaModels.length === 0}
+              className="w-full px-4 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {ollamaModels.length === 0 ? (
+                <option disabled>No embedding models found</option>
+              ) : (
+                ollamaModels.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))
+              )}
+            </select>
+            {ollamaModels.length === 0 && !loadingModels && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                No embedding models found. Try running: <code className="bg-red-50 dark:bg-red-950 px-2 py-1 rounded text-red-800 dark:text-red-300">ollama pull snowflake-arctic-embed:xs</code>
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Disambiguation Toggle */}
         <div className="flex items-center gap-3">
@@ -150,9 +224,18 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
             </div>
           ) : (
             'Find Shortest Path'
-          )}
-        </button>
-      </div>
-    </div>
-  )
-}
+           )}
+         </button>
+         
+         {searching && (
+           <button
+             onClick={onStop}
+             className="px-8 py-3 font-semibold rounded-lg transition-all bg-red-600 hover:bg-red-700 text-white"
+           >
+             Stop Search
+           </button>
+         )}
+       </div>
+     </div>
+   )
+ }
