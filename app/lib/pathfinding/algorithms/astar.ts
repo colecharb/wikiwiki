@@ -309,38 +309,14 @@ export class AStarPathfinder extends BasePathfinder {
           continue
         }
 
-        // Check if target is directly linked (one-hop case)
-        if (unvisitedNeighbors.includes(endTitle)) {
-          const targetG = (gScore.get(currentTitle) || Infinity) + 1
-          cameFrom.set(endTitle, currentTitle)
-          gScore.set(endTitle, targetG)
-          
-          // Create the final node
-          nodes.set(endTitle, {
-            title: endTitle,
-            distance: targetG,
-            parent: currentTitle,
-            similarityScore: 100, // Perfect match - it's the target!
-            heuristicValue: 0,
-          })
-          
-          // Return path immediately
-          const path = this.reconstructPath(nodes, endTitle)
-          return {
-            found: true,
-            path,
-            nodes,
-            distance: path.length - 1,
-            startTitle,
-            endTitle,
-            duration: Date.now() - startTime,
-            algorithm: 'a*',
-          }
-        }
-
         // Batch score all neighbors using just their titles
         try {
+          // Log BEFORE scoring
+          const preScoringG = gScore.get(currentTitle) || Infinity
           if (typeof window !== 'undefined') {
+            console.debug(
+              `[A*] BEFORE scoring - currentTitle="${currentTitle}", gScore=${preScoringG}`
+            )
             console.debug(
               `[A*] Scoring ${unvisitedNeighbors.length} neighbors for target "${endTitle}"`
             )
