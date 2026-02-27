@@ -22,7 +22,6 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
   const [selectedModel, setSelectedModel] = useState<string>('snowflake-arctic-embed:xs')
   const [loadingModels, setLoadingModels] = useState(false)
   const [ollamaError, setOllamaError] = useState<string>('')
-  const ollamaUrl = 'http://localhost:11434' // Always use localhost
 
   // Use prop if provided, otherwise use local state
   const searching = isSearchingProp || isSearching
@@ -38,10 +37,12 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
     setLoadingModels(true)
     setOllamaError('')
     try {
-      const response = await fetch(`${ollamaUrl}/api/tags`)
+      // Use backend proxy to bypass CORS restrictions
+      const response = await fetch('/api/ollama/tags')
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        const errorData = (await response.json()) as { error?: string }
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
       
       const data = (await response.json()) as { models?: Array<{ name: string }> }
@@ -148,11 +149,10 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
                 <p className="text-xs text-red-600 dark:text-red-400 mt-2">
                   <strong>Troubleshooting:</strong>
                   <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li>Ensure Ollama is running and accessible at the URL</li>
-                    <li>Verify the URL is correct: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">https://your-ip:11434</code></li>
-                    <li>Check firewall allows connections to port 11434</li>
-                    <li>For HTTPS, ensure certificate is valid (not self-signed)</li>
-                    <li>Test with: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">curl https://your-ip:11434/api/tags</code></li>
+                    <li>Ensure Ollama is running locally at <code className="bg-red-100 dark:bg-red-900 px-1 rounded">localhost:11434</code></li>
+                    <li>On macOS, run: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">OLLAMA_ORIGINS=* ollama serve</code></li>
+                    <li>Test connection: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">curl http://localhost:11434/api/tags</code></li>
+                    <li>Verify the embedding model is installed: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">ollama pull snowflake-arctic-embed:xs</code></li>
                   </ul>
                 </p>
               </div>
