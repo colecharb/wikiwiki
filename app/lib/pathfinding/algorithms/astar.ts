@@ -269,6 +269,10 @@ export class AStarPathfinder extends BasePathfinder {
       try {
         const crawlResult = await crawler.crawl(currentTitle)
 
+        if (typeof window !== 'undefined') {
+          console.debug(`[A*] Crawled "${currentTitle}": ${crawlResult.links.length} links found`)
+        }
+
         if (!crawlResult.links || crawlResult.links.length === 0) {
           continue
         }
@@ -277,6 +281,15 @@ export class AStarPathfinder extends BasePathfinder {
         const unvisitedNeighbors = crawlResult.links.filter(
           (link) => !visited.has(link)
         )
+
+        if (typeof window !== 'undefined' && unvisitedNeighbors.length > 0) {
+          console.debug(
+            `[A*] Found ${unvisitedNeighbors.length} unvisited neighbors (${crawlResult.links.length - unvisitedNeighbors.length} already visited)`
+          )
+          if (unvisitedNeighbors.includes(endTitle)) {
+            console.debug(`[A*] *** TARGET "${endTitle}" IS IN THE LINKS! ***`)
+          }
+        }
 
         if (unvisitedNeighbors.length === 0) {
           continue
@@ -367,6 +380,10 @@ export class AStarPathfinder extends BasePathfinder {
 
               // Add to open set
               openSet.addOrUpdate(neighbor, f)
+              
+              if (typeof window !== 'undefined' && neighbor === endTitle) {
+                console.debug(`[A*] Target added to open set! Distance: ${tentativeG}, f-score: ${f}`)
+              }
             }
           }
         } catch (error) {
@@ -398,6 +415,13 @@ export class AStarPathfinder extends BasePathfinder {
     }
 
     // No path found
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `[A*] No path found after visiting ${visited.size} nodes. Target "${endTitle}" was never reached.`
+      )
+      console.warn(`[A*] Nodes in search: ${Array.from(nodes.keys()).slice(0, 20).join(', ')}${nodes.size > 20 ? '...' : ''}`)
+    }
+    
     return this.createErrorResult(
       startTitle,
       endTitle,
