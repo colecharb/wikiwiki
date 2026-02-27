@@ -257,13 +257,30 @@ export class OllamaClient {
 
     try {
       // Get target embedding once
-      const targetEmbedding = await this.getEmbedding(targetTitle, timeout)
+      let targetEmbedding: number[] | null = null
+      try {
+        targetEmbedding = await this.getEmbedding(targetTitle, timeout)
+      } catch (error) {
+        // If target embedding fails, log warning but continue with neutral scores
+        console.warn(
+          `[OllamaClient] Failed to get target embedding for "${targetTitle}": ${
+            error instanceof Error ? error.message : String(error)
+          }. Using neutral scores for all candidates.`
+        )
+      }
 
       // Get embeddings for all candidates in parallel
       const embeddings = await Promise.all(
         candidates.map((candidate) =>
           this.getEmbedding(candidate.extract || candidate.title, timeout).catch(
-            () => null
+            (error) => {
+              console.warn(
+                `[OllamaClient] Failed to get embedding for "${candidate.title}": ${
+                  error instanceof Error ? error.message : String(error)
+                }`
+              )
+              return null
+            }
           )
         )
       )
@@ -273,8 +290,8 @@ export class OllamaClient {
       for (let i = 0; i < candidates.length; i++) {
         const candidateEmbedding = embeddings[i]
 
-        if (!candidateEmbedding) {
-          // If embedding failed, use neutral score
+        // If either embedding is missing, use neutral score
+        if (!targetEmbedding || !candidateEmbedding) {
           result.set(candidates[i].title, 50)
           continue
         }

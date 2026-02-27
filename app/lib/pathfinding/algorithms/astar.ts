@@ -188,6 +188,9 @@ export class AStarPathfinder extends BasePathfinder {
     while (!openSet.isEmpty()) {
       // Check timeout
       if (!this.checkTimeout(startTime, timeout)) {
+        if (typeof window !== 'undefined') {
+          console.warn(`[A*] Search timed out. Visited ${visited.size} nodes`)
+        }
         return this.createErrorResult(
           startTitle,
           endTitle,
@@ -206,6 +209,9 @@ export class AStarPathfinder extends BasePathfinder {
       // Found target!
       if (currentTitle === endTitle) {
         const path = this.reconstructPath(nodes, endTitle)
+        if (typeof window !== 'undefined') {
+          console.debug(`[A*] Path found! Distance: ${path.length - 1} hops. Visited ${visited.size} nodes`)
+        }
         return {
           found: true,
           path,
@@ -224,6 +230,10 @@ export class AStarPathfinder extends BasePathfinder {
       }
 
       visited.add(currentTitle)
+      
+      if (typeof window !== 'undefined') {
+        console.debug(`[A*] Exploring: ${currentTitle} (visited: ${visited.size})`)
+      }
 
       // Crawl links from current article
       try {
@@ -273,6 +283,12 @@ export class AStarPathfinder extends BasePathfinder {
 
         // Batch score all neighbors using just their titles
         try {
+          if (typeof window !== 'undefined') {
+            console.debug(
+              `[A*] Scoring ${unvisitedNeighbors.length} neighbors for target "${endTitle}"`
+            )
+          }
+          
           const scores = await this.ollama.batchScoreSimilarity(
             unvisitedNeighbors.map((title) => ({
               title,
