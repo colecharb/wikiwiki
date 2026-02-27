@@ -18,7 +18,7 @@ export class BFSPathfinder extends BasePathfinder {
     options?: PathfindingOptions
   ): Promise<PathResult> {
     const startTime = Date.now()
-    const timeout = options?.timeout || 60000
+    const timeout = options?.timeout || 300000 // 5 minutes
 
     // Validate inputs
     if (!startTitle.trim() || !endTitle.trim()) {

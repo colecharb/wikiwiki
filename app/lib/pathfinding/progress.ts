@@ -9,6 +9,8 @@ export interface ProgressUpdate {
   neighborsCount?: number
   visitedCount?: number
   targetArticle?: string
+  exploredArticles?: string[] // List of articles explored in order
+  exploredArticlesWithScores?: Array<{ title: string; score: number }> // Articles with their similarity scores
   timestamp?: number
 }
 

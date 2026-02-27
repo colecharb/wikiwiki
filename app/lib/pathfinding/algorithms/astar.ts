@@ -99,7 +99,7 @@ export class AStarPathfinder extends BasePathfinder {
     options?: PathfindingOptions
   ): Promise<PathResult> {
     const startTime = Date.now()
-    const timeout = options?.timeout || 60000
+    const timeout = options?.timeout || 300000 // 5 minutes
 
     // Validate inputs
     if (!startTitle.trim() || !endTitle.trim()) {
@@ -135,7 +135,8 @@ export class AStarPathfinder extends BasePathfinder {
     timeout: number,
     startTime: number
   ): Promise<PathResult> {
-    const openSet = new PriorityQueue()
+    // Note: openSet is no longer used in semantic greedy approach
+    // const openSet = new PriorityQueue()
     const cameFrom = new Map<string, string>()
     const gScore = new Map<string, number>() // Cost from start to node
     const hScore = new Map<string, number>() // Heuristic estimate to target
@@ -159,20 +160,24 @@ export class AStarPathfinder extends BasePathfinder {
       })
     }
 
-    // Get initial heuristic for start node using just titles
+    // Get initial similarity for start node
     try {
-      const h = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache)
-      hScore.set(startTitle, h)
-      fScore.set(startTitle, h)
+      const startSimilarity = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache)
+      hScore.set(startTitle, startSimilarity)
+      
+      // Semantic Greedy: use negative similarity for f-score (so highest similarity = lowest f)
+      const f = -startSimilarity
+      fScore.set(startTitle, f)
 
       // Create start node
       nodes.set(startTitle, {
         title: startTitle,
         distance: 0,
-        heuristicValue: h,
+        heuristicValue: startSimilarity,
       })
 
-      openSet.addOrUpdate(startTitle, h)
+      // Note: no longer adding to openSet - using greedy approach
+      // openSet.addOrUpdate(startTitle, f)
     } catch (error) {
       if (error instanceof OllamaTimeoutError) {
         return this.createErrorResult(
@@ -195,17 +200,10 @@ export class AStarPathfinder extends BasePathfinder {
       throw error
     }
 
-    // Main A* loop
-    if (typeof window !== 'undefined') {
-      console.debug(`[A*] Starting main loop. gScore has ${gScore.size} entries: ${Array.from(gScore.entries()).map(([k, v]) => `${k}:${v}`).join(', ')}`)
-    }
-    
-    while (!openSet.isEmpty()) {
+    // Main Greedy loop - always explore the highest similarity neighbor next
+    while (true) {
       // Check timeout
       if (!this.checkTimeout(startTime, timeout)) {
-        if (typeof window !== 'undefined') {
-          console.warn(`[A*] Search timed out. Visited ${visited.size} nodes`)
-        }
         return this.createErrorResult(
           startTitle,
           endTitle,
@@ -215,24 +213,24 @@ export class AStarPathfinder extends BasePathfinder {
         )
       }
 
-      // Get node with lowest f-score
-      const current = openSet.pop()
-      if (!current) break
-
-      const currentTitle = current.title
+      // Find the unvisited article with highest similarity to target
+      let bestArticle: string | null = null
+      let bestScore = -Infinity
       
-      if (typeof window !== 'undefined') {
-        console.debug(`[A*] Popped from openSet: "${currentTitle}" (fScore: ${current.fScore})`)
-        console.debug(`[A*] Is currentTitle in gScore? ${gScore.has(currentTitle)} (gScore.get = ${gScore.get(currentTitle)})`)
-        console.debug(`[A*] All keys in gScore: ${Array.from(gScore.keys()).join(', ')}`)
+      for (const [article, score] of hScore.entries()) {
+        if (!visited.has(article) && score > bestScore) {
+          bestScore = score
+          bestArticle = article
+        }
       }
+      
+      if (!bestArticle) break // No more unvisited articles
+      
+      const currentTitle = bestArticle
 
       // Found target!
       if (currentTitle === endTitle) {
         const path = this.reconstructPath(nodes, endTitle)
-        if (typeof window !== 'undefined') {
-          console.debug(`[A*] Path found! Distance: ${path.length - 1} hops. Visited ${visited.size} nodes`)
-        }
 
         // Emit progress update for found
         if (progressTracker.getSubscriberCount() > 0) {
@@ -263,31 +261,28 @@ export class AStarPathfinder extends BasePathfinder {
       visited.add(currentTitle)
       
       const currentNodeG = gScore.get(currentTitle)
-      
-      if (typeof window !== 'undefined') {
-        console.debug(
-          `[A*] Exploring: ${currentTitle} (visited: ${visited.size}, gScore: ${currentNodeG})`
-        )
-      }
 
       // Emit progress update for exploring
       if (progressTracker.getSubscriberCount() > 0) {
+        // Build explored articles list with scores
+        const exploredWithScores = Array.from(visited).map((title) => ({
+          title,
+          score: hScore.get(title) || 0,
+        }))
         progressTracker.emit({
           type: 'exploring',
           currentArticle: currentTitle,
           visitedCount: visited.size,
+          exploredArticles: Array.from(visited),
+          exploredArticlesWithScores: exploredWithScores,
         })
       }
 
       // Crawl links from current article
       try {
-        const crawlResult = await crawler.crawl(currentTitle)
+      const crawlResult = await crawler.crawl(currentTitle)
 
-        if (typeof window !== 'undefined') {
-          console.debug(`[A*] Crawled "${currentTitle}": ${crawlResult.links.length} links found`)
-        }
-
-        if (!crawlResult.links || crawlResult.links.length === 0) {
+         if (!crawlResult.links || crawlResult.links.length === 0) {
           continue
         }
 
@@ -296,37 +291,13 @@ export class AStarPathfinder extends BasePathfinder {
           (link) => !visited.has(link)
         )
 
-        if (typeof window !== 'undefined' && unvisitedNeighbors.length > 0) {
-          console.debug(
-            `[A*] Found ${unvisitedNeighbors.length} unvisited neighbors (${crawlResult.links.length - unvisitedNeighbors.length} already visited)`
-          )
-          if (unvisitedNeighbors.includes(endTitle)) {
-            console.debug(`[A*] *** TARGET "${endTitle}" IS IN THE LINKS! ***`)
-          }
-        }
-
         if (unvisitedNeighbors.length === 0) {
           continue
         }
 
         // Batch score all neighbors using just their titles
         try {
-          // Log BEFORE scoring
-          if (typeof window !== 'undefined') {
-            console.debug(
-              `[A*] gScore.size before scoring: ${gScore.size}, all entries: ${Array.from(gScore.entries()).map(([k,v]) => `${k}:${v}`).join(', ')}`
-            )
-          }
-          
-          const preScoringG = gScore.get(currentTitle) || Infinity
-          if (typeof window !== 'undefined') {
-            console.debug(
-              `[A*] BEFORE scoring - currentTitle="${currentTitle}", gScore.get(currentTitle)=${gScore.get(currentTitle)}, preScoringG=${preScoringG}`
-            )
-            console.debug(
-              `[A*] Scoring ${unvisitedNeighbors.length} neighbors for target "${endTitle}"`
-            )
-          }
+          const preScoringG = gScore.get(currentTitle) !== undefined ? gScore.get(currentTitle) : Infinity
 
           // Emit progress update for scoring
           if (progressTracker.getSubscriberCount() > 0) {
@@ -346,73 +317,59 @@ export class AStarPathfinder extends BasePathfinder {
             120000 // 120 second timeout - sequential batching of embeddings
           )
 
-          if (typeof window !== 'undefined') {
-            console.debug(
-              `[A*] Got scores for ${scores.size} neighbors. Sample scores:`,
-              Array.from(scores.entries())
-                .slice(0, 5)
-                .map(([title, score]) => `${title}: ${score}`)
-                .join(', ')
-            )
-          }
+          // Sort neighbors by similarity score (highest first)
+          const sortedNeighbors = [...unvisitedNeighbors].sort((a, b) => {
+            const scoreA = scores.get(a) || 50
+            const scoreB = scores.get(b) || 50
+            return scoreB - scoreA // Descending order: highest score first
+          })
 
-          // Process each neighbor
-          let addedCount = 0
-          const currentG = gScore.get(currentTitle) || Infinity
-          
-          if (typeof window !== 'undefined') {
-            console.debug(
-              `[A*] Current node g-score: ${currentG}, so tentativeG for neighbors will be: ${currentG + 1}`
-            )
-          }
-          
-          for (const neighbor of unvisitedNeighbors) {
-            const tentativeG = currentG + 1
-            const currentBestG = gScore.get(neighbor) || Infinity
+          // Process neighbors in order of semantic similarity (highest score first)
+          // Only add the top promising neighbors to avoid exploring too many branches
+          // This creates a focused search that explores promising paths first
+           const TOP_N_NEIGHBORS = 50 // Only process top N most similar neighbors
+           const neighborsToProcess = sortedNeighbors.slice(0, TOP_N_NEIGHBORS)
+           
+           let addedCount = 0
+           const gScoreValue = gScore.get(currentTitle)
+           const currentG = gScoreValue !== undefined ? gScoreValue : Infinity
+           
+           for (const neighbor of neighborsToProcess) {
+              const tentativeG = currentG + 1
+              const neighborG = gScore.get(neighbor)
+              const currentBestG = neighborG !== undefined ? neighborG : Infinity
 
-            if (typeof window !== 'undefined' && addedCount < 3) {
-              console.debug(
-                `[A*] Neighbor "${neighbor}": tentativeG=${tentativeG} vs currentBestG=${currentBestG}, condition=${tentativeG} < ${currentBestG} = ${tentativeG < currentBestG}`
-              )
-            }
+             if (tentativeG < currentBestG) {
+               // This path is better
+               cameFrom.set(neighbor, currentTitle)
+               gScore.set(neighbor, tentativeG)
 
-            if (tentativeG < currentBestG) {
-              // This path is better
-              cameFrom.set(neighbor, currentTitle)
-              gScore.set(neighbor, tentativeG)
+               // Calculate similarity score
+                const similarityScore = scores.get(neighbor) || 50 // Default to neutral (0-100 scale)
+                similarityCache.set(`${neighbor}:${endTitle}`, similarityScore)
 
-              // Calculate h value
-              const similarityScore = scores.get(neighbor) || 50 // Default to neutral
-              similarityCache.set(`${neighbor}:${endTitle}`, similarityScore)
+                // Semantic Greedy: use similarity score directly as priority
+                 // Higher similarity = higher priority (lower f-score value)
+                 // We use negative similarity so higher similarity gives lower f-score
+                 const f = -similarityScore // Negative so greedy sort puts highest similarity first
+                 
+                 hScore.set(neighbor, similarityScore)
+                 fScore.set(neighbor, f)
 
-              const h = (100 - similarityScore) / 100
-              hScore.set(neighbor, h)
+                // Create/update node
+                 nodes.set(neighbor, {
+                   title: neighbor,
+                   distance: tentativeG,
+                   parent: currentTitle,
+                   similarityScore,
+                   heuristicValue: similarityScore, // Use similarity score as heuristic value
+                 })
 
-              const f = tentativeG + h
-              fScore.set(neighbor, f)
-
-              // Create/update node
-              nodes.set(neighbor, {
-                title: neighbor,
-                distance: tentativeG,
-                parent: currentTitle,
-                similarityScore,
-                heuristicValue: h,
-              })
-
-              // Add to open set
-              openSet.addOrUpdate(neighbor, f)
-              addedCount++
-              
-              if (typeof window !== 'undefined' && neighbor === endTitle) {
-                console.debug(`[A*] Target added to open set! Distance: ${tentativeG}, f-score: ${f}`)
+                 // Note: no longer adding to openSet - using greedy approach
+                 // openSet.addOrUpdate(neighbor, f)
+                 addedCount++
               }
             }
-          }
-
-          if (typeof window !== 'undefined') {
-            console.debug(`[A*] Added ${addedCount} neighbors to open set (out of ${unvisitedNeighbors.length})`)
-          }
         } catch (error) {
           if (error instanceof OllamaTimeoutError) {
             return this.createErrorResult(
@@ -442,13 +399,6 @@ export class AStarPathfinder extends BasePathfinder {
     }
 
     // No path found
-    if (typeof window !== 'undefined') {
-      console.warn(
-        `[A*] No path found after visiting ${visited.size} nodes. Target "${endTitle}" was never reached.`
-      )
-      console.warn(`[A*] Nodes in search: ${Array.from(nodes.keys()).slice(0, 20).join(', ')}${nodes.size > 20 ? '...' : ''}`)
-    }
-    
     return this.createErrorResult(
       startTitle,
       endTitle,
@@ -459,9 +409,8 @@ export class AStarPathfinder extends BasePathfinder {
   }
 
   /**
-   * Calculate heuristic (h value) for a node
-   * h = (100 - similarity_score) / 100
-   * Normalized to 0-1 range where 0 means perfect match
+   * Calculate similarity score for a node with respect to target
+   * Returns semantic similarity score (0-100)
    */
   private async calculateHeuristic(
     nodeTitle: string,
@@ -474,12 +423,12 @@ export class AStarPathfinder extends BasePathfinder {
     const cacheKey = `${nodeTitle}:${targetTitle}`
     const cached = cache.get(cacheKey)
     if (cached !== undefined) {
-      return (100 - cached) / 100
+      return cached // Return similarity score directly
     }
 
     // Check timeout
     if (!this.checkTimeout(startTime, timeout)) {
-      throw new OllamaTimeoutError('Overall search timeout reached while calculating heuristic')
+      throw new OllamaTimeoutError('Overall search timeout reached while calculating similarity')
     }
 
     // Score similarity using just the title
@@ -492,7 +441,7 @@ export class AStarPathfinder extends BasePathfinder {
     const similarityScore = scores.get(nodeTitle) || 50
     cache.set(cacheKey, similarityScore)
 
-    // Normalize: 0 = perfect match (similarity 100), 1 = worst match (similarity 0)
-    return (100 - similarityScore) / 100
+    // Return similarity score directly (0-100)
+    return similarityScore
   }
 }

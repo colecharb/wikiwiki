@@ -19,7 +19,7 @@ export class DijkstraPathfinder extends BasePathfinder {
     options?: PathfindingOptions
   ): Promise<PathResult> {
     const startTime = Date.now()
-    const timeout = options?.timeout || 60000
+    const timeout = options?.timeout || 300000 // 5 minutes
 
     // Validate inputs
     if (!startTitle.trim() || !endTitle.trim()) {
@@ -78,8 +78,9 @@ export class DijkstraPathfinder extends BasePathfinder {
       let minDistance = Infinity
 
       for (const node of unvisited) {
-        const distance = distances.get(node) || Infinity
-        if (distance < minDistance) {
+         const distanceValue = distances.get(node)
+         const distance = distanceValue !== undefined ? distanceValue : Infinity
+         if (distance < minDistance) {
           minDistance = distance
           current = node
         }
