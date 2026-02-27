@@ -8,6 +8,8 @@ interface ProgressUpdate {
   neighborsCount?: number
   visitedCount?: number
   targetArticle?: string
+  exploredArticles?: string[]
+  exploredArticlesWithScores?: Array<{ title: string; score: number }>
   timestamp?: number
 }
 
@@ -151,6 +153,29 @@ export default function PathfindingProgress({
                 </div>
                 <div className="text-gray-600 dark:text-gray-400">Status</div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Explored Articles List */}
+        {lastExploring?.exploredArticlesWithScores && lastExploring.exploredArticlesWithScores.length > 0 && (
+          <div className="pt-4 border-t border-blue-200 dark:border-blue-800">
+            <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase">
+              Explored Articles ({lastExploring.exploredArticlesWithScores.length})
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {lastExploring.exploredArticlesWithScores.map((item, index) => (
+                <div
+                  key={`${item.title}-${index}`}
+                  className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md text-xs font-mono text-gray-700 dark:text-gray-300 flex items-center gap-2"
+                >
+                  <span className="text-blue-600 dark:text-blue-400 font-bold">#{index + 1}</span>
+                  <span className="truncate max-w-xs">{item.title}</span>
+                  {item.score > 0 && (
+                    <span className="text-gray-500 dark:text-gray-500 text-xs">({item.score.toFixed(1)})</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
