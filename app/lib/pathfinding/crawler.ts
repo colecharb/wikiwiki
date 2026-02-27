@@ -15,7 +15,12 @@ export class WikipediaCrawler implements ArticleCrawler {
         return data.data
       }
 
-      // Return empty result on error
+      // Log error for debugging
+      if (!data.success) {
+        console.warn(`Failed to fetch links for "${title}": ${data.error}`)
+      }
+
+      // Return empty result on error (prevents path-finding from failing)
       return {
         title,
         links: [],

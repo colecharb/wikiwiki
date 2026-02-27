@@ -44,7 +44,24 @@ export async function GET(request: NextRequest) {
       url.searchParams.set('plcontinue', continueToken)
     }
 
-    const response = await fetch(url.toString())
+    const response = await fetch(url.toString(), {
+      headers: {
+        'User-Agent': 'WikiWiki-PathFinder/1.0 (https://github.com/anomalyco/Claude)',
+      },
+    })
+
+    // Check HTTP status
+    if (!response.ok) {
+      console.error(`Wikipedia API returned ${response.status} for title "${title}"`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Wikipedia API error: ${response.status} ${response.statusText}`,
+        } as ApiResponse<never>,
+        { status: response.status >= 500 ? 502 : 400 }
+      )
+    }
+
     const data = await response.json()
 
     // Check for errors
