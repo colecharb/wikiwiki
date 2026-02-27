@@ -146,6 +146,8 @@ export class AStarPathfinder extends BasePathfinder {
 
     // Session-scoped cache for similarity scores (for this search only)
     const similarityCache = new Map<string, number>()
+    // Cache for article extracts (fetched on demand)
+    const extractCache = new Map<string, string>()
 
     // Fetch target extract once for better semantic similarity
     let targetExtract: string | undefined = undefined
@@ -157,6 +159,7 @@ export class AStarPathfinder extends BasePathfinder {
         const targetExtractData = (await targetExtractResponse.json()) as { success: boolean; data?: Record<string, { extract: string }> }
         if (targetExtractData.success && targetExtractData.data && targetExtractData.data[endTitle]) {
           targetExtract = targetExtractData.data[endTitle].extract
+          extractCache.set(endTitle, targetExtract)
         }
       }
     } catch (error) {
@@ -178,7 +181,7 @@ export class AStarPathfinder extends BasePathfinder {
 
     // Get initial similarity for start node
     try {
-      const startSimilarity = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache, targetExtract)
+      const startSimilarity = await this.calculateHeuristic(startTitle, endTitle, startTime, timeout, similarityCache, targetExtract, extractCache)
       hScore.set(startTitle, startSimilarity)
       
       // Semantic Greedy: use negative similarity for f-score (so highest similarity = lowest f)
@@ -324,28 +327,29 @@ export class AStarPathfinder extends BasePathfinder {
             })
           }
 
-          // Fetch article extracts for context
-          let extracts: Record<string, string> = {}
-          try {
-            const titlesParam = unvisitedNeighbors.join('|')
-            const extractResponse = await fetch(
-              `/api/wikipedia/extract?titles=${encodeURIComponent(titlesParam)}`
-            )
-            if (extractResponse.ok) {
-              const extractData = (await extractResponse.json()) as { success: boolean; data?: Record<string, { extract: string }> }
-              if (extractData.success && extractData.data) {
-                extracts = Object.entries(extractData.data).reduce(
-                  (acc, [title, data]) => {
-                    acc[title] = data.extract
-                    return acc
-                  },
-                  {} as Record<string, string>
-                )
-              }
-            }
-          } catch (error) {
-            console.warn('Failed to fetch extracts, continuing with titles only:', error)
-          }
+           // Fetch article extracts for context (batch in smaller groups to avoid URL length issues)
+           let extracts: Record<string, string> = {}
+           try {
+             const BATCH_SIZE = 20 // Fetch extracts in smaller batches
+             for (let i = 0; i < unvisitedNeighbors.length; i += BATCH_SIZE) {
+               const batchTitles = unvisitedNeighbors.slice(i, i + BATCH_SIZE)
+               const titlesParam = batchTitles.join('|')
+               const extractResponse = await fetch(
+                 `/api/wikipedia/extract?titles=${encodeURIComponent(titlesParam)}`
+               )
+               if (extractResponse.ok) {
+                 const extractData = (await extractResponse.json()) as { success: boolean; data?: Record<string, { extract: string }> }
+                 if (extractData.success && extractData.data) {
+                   Object.entries(extractData.data).forEach(([title, data]) => {
+                     extracts[title] = data.extract
+                     extractCache.set(title, data.extract) // Also cache for future use
+                   })
+                 }
+               }
+             }
+           } catch (error) {
+             console.warn('Failed to fetch extracts, continuing with titles only:', error)
+           }
           
           const scores = await this.ollama.batchScoreSimilarity(
             unvisitedNeighbors.map((title) => ({
@@ -458,7 +462,8 @@ export class AStarPathfinder extends BasePathfinder {
     startTime: number,
     timeout: number,
     cache: Map<string, number>,
-    targetExtract?: string
+    targetExtract?: string,
+    extractCache?: Map<string, string>
   ): Promise<number> {
     // Check cache first
     const cacheKey = `${nodeTitle}:${targetTitle}`
@@ -472,9 +477,12 @@ export class AStarPathfinder extends BasePathfinder {
       throw new OllamaTimeoutError('Overall search timeout reached while calculating similarity')
     }
 
-    // Score similarity using just the title (can't batch fetch for single item)
+    // Get node extract from cache or use fallback to title
+    const nodeExtract = extractCache?.get(nodeTitle) || nodeTitle
+
+    // Score similarity using title and extract if available
     const scores = await this.ollama.batchScoreSimilarity(
-      [{ title: nodeTitle, extract: nodeTitle }],
+      [{ title: nodeTitle, extract: nodeExtract }],
       targetTitle,
       30000, // 30 second timeout for embedding-based scoring
       targetExtract
