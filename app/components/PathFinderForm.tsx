@@ -194,12 +194,12 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
                 <p className="text-xs text-red-700 dark:text-red-300 font-semibold mb-1">Connection Error:</p>
                 <p className="text-xs text-red-600 dark:text-red-400 font-mono break-words">{ollamaError}</p>
                 <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-                  <strong>Tips:</strong>
+                  <strong>Troubleshooting:</strong>
                   <ul className="list-disc list-inside mt-1 space-y-1">
                     <li>Ensure Ollama is running: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">ollama serve</code></li>
                     <li>Check your URL is correct and reachable</li>
+                    <li><strong>CORS Error?</strong> Enable CORS in Ollama: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">OLLAMA_ORIGINS=* ollama serve</code></li>
                     <li>For HTTPS URLs, ensure you have a valid certificate</li>
-                    <li>Browser CORS policy may block the request - check browser console</li>
                   </ul>
                 </p>
               </div>
