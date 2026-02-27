@@ -328,28 +328,63 @@ export class AStarPathfinder extends BasePathfinder {
           }
 
            // Fetch article extracts for context (batch in smaller groups to avoid URL length issues)
+           // This ensures extracts are available BEFORE we do embeddings
            let extracts: Record<string, string> = {}
            try {
              const BATCH_SIZE = 20 // Fetch extracts in smaller batches
              for (let i = 0; i < unvisitedNeighbors.length; i += BATCH_SIZE) {
                const batchTitles = unvisitedNeighbors.slice(i, i + BATCH_SIZE)
-               const titlesParam = batchTitles.join('|')
-               const extractResponse = await fetch(
-                 `/api/wikipedia/extract?titles=${encodeURIComponent(titlesParam)}`
-               )
-               if (extractResponse.ok) {
-                 const extractData = (await extractResponse.json()) as { success: boolean; data?: Record<string, { extract: string }> }
-                 if (extractData.success && extractData.data) {
-                   Object.entries(extractData.data).forEach(([title, data]) => {
-                     extracts[title] = data.extract
-                     extractCache.set(title, data.extract) // Also cache for future use
-                   })
-                 }
+               
+               // Skip titles that are already in cache
+               const uncachedTitles = batchTitles.filter(title => !extractCache.has(title))
+               if (uncachedTitles.length === 0) {
+                 // All titles already cached, just use them
+                 batchTitles.forEach(title => {
+                   const cached = extractCache.get(title)
+                   if (cached) {
+                     extracts[title] = cached
+                   }
+                 })
+                 continue
                }
+               
+               const titlesParam = uncachedTitles.join('|')
+               try {
+                 const extractResponse = await fetch(
+                   `/api/wikipedia/extract?titles=${encodeURIComponent(titlesParam)}`
+                 )
+                 if (extractResponse.ok) {
+                   const extractData = (await extractResponse.json()) as { success: boolean; data?: Record<string, { extract: string }> }
+                   if (extractData.success && extractData.data) {
+                     Object.entries(extractData.data).forEach(([title, data]) => {
+                       extracts[title] = data.extract
+                       extractCache.set(title, data.extract) // Cache for future use
+                     })
+                   }
+                 } else {
+                   console.warn(`Failed to fetch extracts (HTTP ${extractResponse.status}), falling back to titles`)
+                 }
+               } catch (batchError) {
+                 console.warn(`Failed to fetch extracts batch, falling back to titles:`, batchError)
+               }
+               
+               // Ensure all titles have something (extract or title)
+               batchTitles.forEach(title => {
+                 if (!extracts[title]) {
+                   extracts[title] = extractCache.get(title) || title
+                 }
+               })
              }
            } catch (error) {
              console.warn('Failed to fetch extracts, continuing with titles only:', error)
            }
+           
+           // Make sure all unvisited neighbors have an entry in extracts before scoring
+           unvisitedNeighbors.forEach(title => {
+             if (!extracts[title]) {
+               extracts[title] = extractCache.get(title) || title
+             }
+           })
           
           const scores = await this.ollama.batchScoreSimilarity(
             unvisitedNeighbors.map((title) => ({
