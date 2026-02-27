@@ -50,15 +50,13 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
         localStorage.setItem('ollamaUrl', ollamaUrl)
       }
       
-      const response = await fetch(`${ollamaUrl}/api/tags`, {
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      // Use API proxy route to bypass CORS restrictions
+      const encodedUrl = encodeURIComponent(ollamaUrl)
+      const response = await fetch(`/api/ollama/tags?url=${encodedUrl}`)
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        const errorData = (await response.json()) as { error?: string }
+        throw new Error(errorData.error || `HTTP ${response.status}`)
       }
       
       const data = (await response.json()) as { models?: Array<{ name: string }> }
@@ -196,10 +194,11 @@ export default function PathFinderForm({ onFindPath, onArticleChange, isSearchin
                 <p className="text-xs text-red-600 dark:text-red-400 mt-2">
                   <strong>Troubleshooting:</strong>
                   <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li>Ensure Ollama is running: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">ollama serve</code></li>
-                    <li>Check your URL is correct and reachable</li>
-                    <li><strong>CORS Error?</strong> Enable CORS in Ollama: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">OLLAMA_ORIGINS=* ollama serve</code></li>
-                    <li>For HTTPS URLs, ensure you have a valid certificate</li>
+                    <li>Ensure Ollama is running and accessible at the URL</li>
+                    <li>Verify the URL is correct: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">https://your-ip:11434</code></li>
+                    <li>Check firewall allows connections to port 11434</li>
+                    <li>For HTTPS, ensure certificate is valid (not self-signed)</li>
+                    <li>Test with: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">curl https://your-ip:11434/api/tags</code></li>
                   </ul>
                 </p>
               </div>
